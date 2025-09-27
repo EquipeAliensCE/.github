@@ -17,7 +17,7 @@ const config = {
       debug: true,
     },
   },
-  scene: [MainScene, MenuScene], // cena registrada aqui
+  scene: [MenuScene, MainScene], // cena registrada aqui
 };
 
 // Inicializa o game
