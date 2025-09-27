@@ -1,6 +1,7 @@
 const size = { width: 1366, height: 768 };
 const speedDown = 300;
 
+
 // Config do jogo
 const config = {
   type: Phaser.WEBGL,
