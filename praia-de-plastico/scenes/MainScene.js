@@ -1,11 +1,15 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super("MainScene");
+
+    // PLAYER
     this.playerSpeed = 300; // Velocidade do Player
     this.acceleration = 600; // Aceleração para movimento mais suave
     this.deceleration = 800; // Desaceleração
     this.cursors = null; // Cursor keys
     this.playerVelocityX = 0; // Velocidade atual do player
+
+    // HOOK
     this.hook = null; // Anzol
     this.hookStartX = 0; // Posição inicial X do anzol
     this.hookStartY = 0; // Posição inicial Y do anzol
@@ -17,15 +21,37 @@ class MainScene extends Phaser.Scene {
     this.hookSwingSpeed = 120; // Velocidade de oscilação do anzol
     this.hookSwingDirection = 1; // Direção da oscilação (1 pra direita ou -1 pra esquerda)
     this.isHookSwinging = false; // Se o anzol está oscilando
+
+    // CAMERA
+    this.defaultZoom = 2.0; // Zoom padrão da câmera
+    this.hookZoom = 1.0; // Zoom quando a câmera está seguindo o anzol
+    this.cameraTweenDuration = 1000; // Duração do tween da câmera em ms
+  }
+
+  resetCamera() {
+    // Transição suave com tween
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.defaultZoom,
+      duration: this.cameraTweenDuration,
+      ease: "Power2",
+    });
+
+    // Transição suave para seguir o player
+    const cam = this.cameras.main;
+    cam.startFollow(this.player);
+    this.tweens.add({
+      targets: cam._follow,
+      lerp: 0.1,
+      duration: this.cameraTweenDuration,
+      ease: "Power2",
+    });
   }
 
   preload() {
-    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png"); // Placeholder do mar
-    this.load.image(
-      "pescadorplaceholder", // Placeholder do pescador
-      "assets/sprites/pescadorplaceholder.png"
-    );
-    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png"); // Placeholder do anzol
+    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
+    this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
+    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png");
   }
 
   create() {
@@ -37,11 +63,11 @@ class MainScene extends Phaser.Scene {
     bg.setScale(scale);
 
     // Player
-    this.player = this.add.image(683, 600, "pescadorplaceholder");
+    this.player = this.add.image(683, 600, "barcoratosprite");
     const sizePercentage = 0.08;
-    const boatScale = (1366 * sizePercentage) / this.player.width; // Escala baseada na largura da tela (eu acho que é 1/12 do tamanho da tela)
+    const boatScale = (1366 * sizePercentage) / this.player.width;
     this.player.setScale(boatScale);
-    this.player.setOrigin(0.5, 1);
+    this.player.setOrigin(0.5, 1.8);
 
     // Configura as teclas
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -61,8 +87,29 @@ class MainScene extends Phaser.Scene {
 
         this.isHookSwinging = false; // Para de oscilar
         this.hookGravity = true; // Começa a cair
+
+        // Câmera segue o anzol com zoom
+        this.cameras.main.startFollow(this.hook);
+        this.tweens.add({
+          targets: this.cameras.main,
+          zoom: this.hookZoom,
+          duration: this.cameraTweenDuration,
+          ease: "Power2",
+        });
       }
     });
+
+    // Camera
+    // Faz a câmera seguir o player
+    this.cameras.main.startFollow(this.player, true);
+    this.cameras.main.setFollowOffset(0, 0); // Centraliza o player na câmera
+    this.cameras.main.setDeadzone(0, 0); // Remove a zona morta para seguir o player imediatamente
+
+    // Define os limites da câmera (o mundo pode ser maior que a tela)
+    this.cameras.main.setBounds(0, 0, size.width, size.height);
+
+    // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
+    this.cameras.main.setZoom(1.8);
   }
 
   throwHook() {
@@ -134,6 +181,7 @@ class MainScene extends Phaser.Scene {
           this.isHookSwinging = false;
           this.hookGravity = false;
           this.hookReturning = false;
+          this.resetCamera(); // Reset camera to follow player
           return;
         }
 
