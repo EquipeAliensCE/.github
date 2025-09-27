@@ -4,8 +4,14 @@ class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.text(648, 384, "MENU PRINCIPAL", { fontSize: "24px", fill: "#fff" });
-    this.add.text(30, 100, "Pressione ESPAÇO para jogar", { fontSize: "18px", fill: "#aaa" });
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+
+
+    const title = this.add.text(centerX, centerY - 50, "MENU PRINCIPAL", { fontSize: "24px", fill: "#fff" });
+    title.setOrigin(0.5)
+    const instruction = this.add.text(centerX, centerY + 50, "Pressione ESPAÇO para jogar", { fontSize: "18px", fill: "#aaa" });
+    instruction.setOrigin(0.5)
 
     this.input.keyboard.once("keydown-SPACE", () => {
       this.scene.start("MainScene");

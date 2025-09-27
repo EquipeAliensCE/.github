@@ -10,11 +10,11 @@ class MainScene extends Phaser.Scene {
 
   create() {
     // Adicione .setOrigin(0,0) apenas se quiser alinhar pelo canto superior esquerdo
-     const bg = this.add.image(160, 90, "marplaceholder");
+     const bg = this.add.image(683, 384, "marplaceholder");
     
     // Calcula a escala necessária para cobrir a tela
-    const scaleX = 320 / bg.width;
-    const scaleY = 180 / bg.height;
+    const scaleX = 1366 / bg.width;
+    const scaleY = 768 / bg.height;
     
     // Usa a maior escala para cobrir toda a tela (pode cortar partes da imagem)
     const scale = Math.max(scaleX, scaleY);
