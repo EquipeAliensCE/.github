@@ -1,22 +1,15 @@
-const size = {
-  width: 500,
-  heigth: 500,
-};
-
+const size = { width: 320, height: 180 };
 const speedDown = 300;
 
+// Config do jogo
 const config = {
   type: Phaser.WEBGL,
   width: size.width,
-  heigth: size.heigth,
-  //Quando for precisar puxar um arquivo do HTML, faça como se fosse JS e HTML normal usando o document.getElementeById.
-  canvas: document.getElementById("gameCanvas"),
+  height: size.height,
+  pixelArt: true, // para evitar blur
+  zoom: 4, // 720p
+  canvas: document.getElementById("gameCanvas"), // Usar getElementById pois é HTML seco
   backgroundColor: "#0d0d35",
-  scene: {
-    create: function () {
-      this.add.text(100, 200, "Funcionou!", { fontSize: "32px", fill: "#fff" });
-    },
-  },
   physics: {
     default: "arcade",
     arcade: {
@@ -24,6 +17,8 @@ const config = {
       debug: true,
     },
   },
+  scene: [MainScene, MenuScene], // cena registrada aqui
 };
 
+// Inicializa o game
 const game = new Phaser.Game(config);
