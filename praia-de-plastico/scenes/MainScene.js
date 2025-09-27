@@ -21,10 +21,7 @@ class MainScene extends Phaser.Scene {
 
   preload() {
     this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
-    this.load.image(
-      "pescadorplaceholder",
-      "assets/sprites/pescadorplaceholder.png"
-    );
+    this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
     this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png");
   }
 
@@ -37,8 +34,8 @@ class MainScene extends Phaser.Scene {
     bg.setScale(scale);
 
     // Player
-    this.player = this.add.image(683, 600, "pescadorplaceholder");
-    const sizePercentage = 0.08;
+    this.player = this.add.image(683, 600, "barcoratosprite");
+    const sizePercentage = 0.12;
     const boatScale = (1366 * sizePercentage) / this.player.width;
     this.player.setScale(boatScale);
     this.player.setOrigin(0.5, 1);
