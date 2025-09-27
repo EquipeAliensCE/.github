@@ -2,12 +2,17 @@ class MainScene extends Phaser.Scene {
   constructor() {
     super("MainScene");
 
+    // GAME
+    this.gameWidth = 1366;
+    this.gameHeight = 768;
+
     // PLAYER
     this.playerSpeed = 300; // Velocidade do Player
     this.acceleration = 600; // Aceleração para movimento mais suave
     this.deceleration = 800; // Desaceleração
     this.cursors = null; // Cursor keys
     this.playerVelocityX = 0; // Velocidade atual do player
+    this.canMove = true; // Se o player pode se mover
 
     // HOOK
     this.hook = null; // Anzol
@@ -15,6 +20,7 @@ class MainScene extends Phaser.Scene {
     this.hookStartY = 0; // Posição inicial Y do anzol
     this.hookVelocityX = 0; // Velocidade atual X do anzol
     this.hookVelocityY = 0; // Velocidade atual Y do anzol
+    this.hookThrowSpeed = 400; // Velocidade de lançamento do anzol
     this.hookSpeed = 300; // Velocidade de descida do anzol
     this.hookGravity = false; // Se o anzol está caindo
     this.hookReturning = false; // Se o anzol está retornando
@@ -24,7 +30,7 @@ class MainScene extends Phaser.Scene {
 
     // CAMERA
     this.defaultZoom = 2.0; // Zoom padrão da câmera
-    this.hookZoom = 1.0; // Zoom quando a câmera está seguindo o anzol
+    this.hookZoom = 1.5; // Zoom quando a câmera está seguindo o anzol
     this.cameraTweenDuration = 1000; // Duração do tween da câmera em ms
 
     // LIXO E DINHEIRO
@@ -69,38 +75,35 @@ class MainScene extends Phaser.Scene {
   }
 
   create() {
-    // Background
+    // BACKGROUND
+
     const bg = this.add.image(683, 384, "marplaceholder");
-    const scaleX = 1366 / bg.width;
+    const scaleX = 1366 / bg.width; // EU SEI QUE TÁ ERRADO MAS NÃO MEXE NESSA PORRA PQ SE NÃO QUEBRA
     const scaleY = 768 / bg.height;
     const scale = Math.max(scaleX, scaleY); // Preenche a tela
     bg.setScale(scale);
 
-    // Player
-    this.player = this.add.image(683, 600, "barcoratosprite");
+    // PLAYER
+
+    this.player = this.add.image(683, 700, "barcoratosprite");
     const sizePercentage = 0.08;
     const boatScale = (1366 * sizePercentage) / this.player.width;
     this.player.setScale(boatScale);
     this.player.setOrigin(0.5, 1.8);
 
-    // Configura as teclas
+    // INPUTS
+
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
-    // Controle para lançar o anzol
+    // LANÇAR ANZOL
+
     this.input.keyboard.on("keydown-SPACE", () => {
       if (!this.hook) {
         this.throwHook();
         this.isHookSwinging = true; // Checa se o anzol está oscilando
-      } else if (this.isHookSwinging) {
-        // Calcula as velocidades baseadas no ângulo
-        const angleRad = Phaser.Math.DegToRad(this.hook.angle - 90); // -90 para corrigir o ângulo
-        this.hookVelocityX = Math.cos(angleRad) * this.hookThrowSpeed; // Altera a velocidade X com base na hookThrowSpeed e angulo
-        this.hookVelocityY = Math.sin(angleRad) * this.hookThrowSpeed; // Altera a velocidade Y com base na hookThrowSpeed e angulo
-
-        this.isHookSwinging = false; // Para de oscilar
-        this.hookGravity = true; // Começa a cair
+        this.canMove = false; // Para o movimento do player
 
         // Câmera segue o anzol com zoom
         this.cameras.main.startFollow(this.hook);
@@ -110,17 +113,25 @@ class MainScene extends Phaser.Scene {
           duration: this.cameraTweenDuration,
           ease: "Power2",
         });
+      } else if (this.isHookSwinging) {
+        // Calcula as velocidades baseadas no ângulo
+        const angleRad = Phaser.Math.DegToRad(this.hook.angle - 90); // -90 para corrigir o ângulo
+        this.hookVelocityX = Math.cos(angleRad) * this.hookThrowSpeed; // Altera a velocidade X com base na hookThrowSpeed e angulo
+        this.hookVelocityY = Math.sin(angleRad) * this.hookThrowSpeed; // Altera a velocidade Y com base na hookThrowSpeed e angulo
+
+        this.isHookSwinging = false; // Para de oscilar
+        this.hookGravity = true; // Começa a cair
       }
     });
 
-    // Camera
+    // CAMERA
     // Faz a câmera seguir o player
     this.cameras.main.startFollow(this.player, true);
     this.cameras.main.setFollowOffset(0, 0); // Centraliza o player na câmera
     this.cameras.main.setDeadzone(0, 0); // Remove a zona morta para seguir o player imediatamente
 
     // Define os limites da câmera (o mundo pode ser maior que a tela)
-    this.cameras.main.setBounds(0, 0, 1366, 768); // Usando dimensões fixas do jogo
+    this.cameras.main.setBounds(0, 0, this.gameWidth, this.gameHeight);
 
     // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
     this.cameras.main.setZoom(1.8);
@@ -272,21 +283,28 @@ class MainScene extends Phaser.Scene {
   }
 
   throwHook() {
+    // Calcula a posição inicial correta
+    const hookStartPosition = {
+      x: this.player.x,
+      y: this.player.y - 80, // Mesma posição onde o anzol é criado
+    };
+
     // Cria o anzol
-    this.hook = this.add.image(this.player.x, this.player.y - 95, "anzolplaceholder");
-    const hookScale = 0.02; // Escala do anzol
+    this.hook = this.add.image(
+      hookStartPosition.x,
+      hookStartPosition.y,
+      "anzolplaceholder"
+    );
+    const hookScale = 0.03;
     this.hook.setScale(hookScale);
     this.hook.setOrigin(0.5, 0.5);
+
+    // Armazena as posições iniciais corretamente
+    this.hookStartX = hookStartPosition.x;
+    this.hookStartY = hookStartPosition.y;
+
     this.hookGravity = false;
-    this.hookStartX = this.player.x;
-    this.hookStartY = this.player.y - 10; // Posição inicial do anzol baseado na posição do player
-    
-    // Adiciona física ao anzol
-    // Habilita física no anzol apenas se o plugin existir
-    if (this.physics && this.physics.world && this.physics.world.enable) {
-      this.physics.world.enable(this.hook);
-      if (this.hook.body) this.hook.body.setAllowGravity(false);
-    }
+    this.hookReturning = false;
   }
 
   updateHookMovement(delta) {
@@ -321,11 +339,12 @@ class MainScene extends Phaser.Scene {
         this.hook.y -= moveY;
 
         // Checa se saiu da tela
+        const margin = 20; // margem de segurança
         if (
-          this.hook.y > 768 ||
-          this.hook.y < 0 ||
-          this.hook.x < 0 ||
-          this.hook.x > 1366
+          this.hook.y > this.gameHeight + margin ||
+          this.hook.y < -margin ||
+          this.hook.x < -margin ||
+          this.hook.x > this.gameWidth + margin
         ) {
           this.hookReturning = true;
         }
@@ -343,6 +362,7 @@ class MainScene extends Phaser.Scene {
           this.isHookSwinging = false;
           this.hookGravity = false;
           this.hookReturning = false;
+          this.canMove = true; // Permite o movimento do player
           this.resetCamera(); // Reset camera to follow player
           return;
         }
@@ -369,6 +389,8 @@ class MainScene extends Phaser.Scene {
 
   movePlayer(delta) {
     const deltaTime = delta / 1000; // Converte para segundos
+
+    if (!this.canMove) return; // Se não pode mover, sai da função
 
     // Aceleração/desaceleração
     if (this.cursors.left.isDown || this.keyA.isDown) {
