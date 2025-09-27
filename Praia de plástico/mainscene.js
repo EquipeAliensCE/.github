@@ -1,31 +1,37 @@
-const { Physics } = require("phaser");
+// 1. Consts globais
+const size = { width: 500, height: 500 };
+const speedDown = 300;
 
-const size={
-width:500,
-heigth:500,
+// 2. Cena
+class MainScene extends Phaser.Scene {
+  constructor() {
+    super("MainScene");
+  }
+
+  create() {
+    this.add.text(100, 200, "Funcionou!", {
+      fontSize: "32px",
+      fill: "#fff",
+    });
+  }
 }
 
-const speedDown =300
-
+// 3. Config do jogo
 const config = {
   type: Phaser.WEBGL,
   width: size.width,
-  heigth: size.heigth,
-  //Quando for precisar puxar um arquivo do HTML, faça como se fosse JS e HTML normal usando o document.getElementeById.
-  canvas: document.getElementById('gameCanvas'),
-  backgroundColor: '#0d0d35',
-  scene: {
-    create: function () {
-      this.add.text(100, 200, 'Funcionou!', { fontSize: '32px', fill: '#fff' });
-    }
+  height: size.height,
+  canvas: document.getElementById("gameCanvas"), // Usar getElementById pois é HTML seco
+  backgroundColor: "#0d0d35",
+  physics: {
+    default: "arcade",
+    arcade: {
+      gravity: { y: speedDown },
+      debug: true,
+    },
   },
-  physics:{
-      default:"arcade",
-      arcade:{
-        gravity:{y:speedDown},
-        debug:true
-      }
-  }
+  scene: [MainScene], // cena registrada aqui
 };
 
-const game = new Phaser.Game(config)
+// 4. Inicializa o game
+const game = new Phaser.Game(config);
