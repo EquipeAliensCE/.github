@@ -2,7 +2,6 @@ class MenuScene extends Phaser.Scene {
   constructor() {
     super("MenuScene");
   }
-
   preload(){
     this.load.image("menuplaceholder", "assets/sprites/menuplaceholder.png")
   }
@@ -28,6 +27,5 @@ class MenuScene extends Phaser.Scene {
     this.input.keyboard.once("keydown-SPACE", () => {
       this.scene.start("MainScene");
     });
-
   }
 }

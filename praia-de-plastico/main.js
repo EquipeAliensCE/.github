@@ -1,7 +1,5 @@
 const size = { width: 1366, height: 768 };
 const speedDown = 300;
-
-
 // Config do jogo
 const config = {
   type: Phaser.WEBGL,
@@ -9,6 +7,7 @@ const config = {
   height: size.height,
   pixelArt: false, // para evitar blur
   zoom: 1, // 720p
+
   canvas: document.getElementById("gameCanvas"), // Usar getElementById pois é HTML seco
   backgroundColor: "#0d0d35",
   physics: {
