@@ -4,7 +4,7 @@ class MainScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.text(100, 200, "Funcionou!", {
+    this.add.text(50, 50, "Funcionou!", {
       fontSize: "32px",
       fill: "#fff",
     });
