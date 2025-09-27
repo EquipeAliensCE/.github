@@ -1,31 +1,35 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super("MainScene");
-    this.playerSpeed = 300;
+
+    // PLAYER
+    this.playerSpeed = 300; // Velocidade do Player
     this.acceleration = 600; // Aceleração para movimento mais suave
     this.deceleration = 800; // Desaceleração
-    this.cursors = null;
-    this.playerVelocityX = 0;
-    this.hook = null;
-    this.hookStartX = 0; // New: stores initial X position
-    this.hookStartY = 0; // New: stores initial Y position
-    this.hookVelocityX = 0;
-    this.hookVelocityY = 0;
+    this.cursors = null; // Cursor keys
+    this.playerVelocityX = 0; // Velocidade atual do player
+
+    // HOOK
+    this.hook = null; // Anzol
+    this.hookStartX = 0; // Posição inicial X do anzol
+    this.hookStartY = 0; // Posição inicial Y do anzol
+    this.hookVelocityX = 0; // Velocidade atual X do anzol
+    this.hookVelocityY = 0; // Velocidade atual Y do anzol
     this.hookSpeed = 300; // Velocidade de descida do anzol
-    this.hookGravity = false;
-    this.hookReturning = false; // New: tracks if hook is returning
-    this.hookSwingSpeed = 120;
-    this.hookSwingDirection = 1;
-    this.isHookSwinging = false;
+    this.hookGravity = false; // Se o anzol está caindo
+    this.hookReturning = false; // Se o anzol está retornando
+    this.hookSwingSpeed = 120; // Velocidade de oscilação do anzol
+    this.hookSwingDirection = 1; // Direção da oscilação (1 pra direita ou -1 pra esquerda)
+    this.isHookSwinging = false; // Se o anzol está oscilando
   }
 
   preload() {
-    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
+    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png"); // Placeholder do mar
     this.load.image(
-      "pescadorplaceholder",
+      "pescadorplaceholder", // Placeholder do pescador
       "assets/sprites/pescadorplaceholder.png"
     );
-    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png");
+    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png"); // Placeholder do anzol
   }
 
   create() {
@@ -33,13 +37,13 @@ class MainScene extends Phaser.Scene {
     const bg = this.add.image(683, 384, "marplaceholder");
     const scaleX = 1366 / bg.width;
     const scaleY = 768 / bg.height;
-    const scale = Math.max(scaleX, scaleY);
+    const scale = Math.max(scaleX, scaleY); // Preenche a tela
     bg.setScale(scale);
 
     // Player
     this.player = this.add.image(683, 600, "pescadorplaceholder");
     const sizePercentage = 0.08;
-    const boatScale = (1366 * sizePercentage) / this.player.width;
+    const boatScale = (1366 * sizePercentage) / this.player.width; // Escala baseada na largura da tela (eu acho que é 1/12 do tamanho da tela)
     this.player.setScale(boatScale);
     this.player.setOrigin(0.5, 1);
 
@@ -52,17 +56,27 @@ class MainScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-SPACE", () => {
       if (!this.hook) {
         this.throwHook();
-        this.isHookSwinging = true;
+        this.isHookSwinging = true; // Checa se o anzol está oscilando
       } else if (this.isHookSwinging) {
         // Calcula as velocidades baseadas no ângulo
         const angleRad = Phaser.Math.DegToRad(this.hook.angle - 90); // -90 para corrigir o ângulo
-        this.hookVelocityX = Math.cos(angleRad) * this.hookThrowSpeed;
-        this.hookVelocityY = Math.sin(angleRad) * this.hookThrowSpeed;
+        this.hookVelocityX = Math.cos(angleRad) * this.hookThrowSpeed; // Altera a velocidade X com base na hookThrowSpeed e angulo
+        this.hookVelocityY = Math.sin(angleRad) * this.hookThrowSpeed; // Altera a velocidade Y com base na hookThrowSpeed e angulo
 
-        this.isHookSwinging = false;
-        this.hookGravity = true;
+        this.isHookSwinging = false; // Para de oscilar
+        this.hookGravity = true; // Começa a cair
       }
     });
+
+    // Camera
+    // Faz a câmera seguir o player
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Define os limites da câmera (o mundo pode ser maior que a tela)
+    this.cameras.main.setBounds(0, 0, size.width, size.height);
+
+    // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
+    this.cameras.main.setZoom(1.5);
   }
 
   throwHook() {
@@ -72,18 +86,18 @@ class MainScene extends Phaser.Scene {
       this.player.y - 10,
       "anzolplaceholder"
     );
-    const hookScale = 0.03;
+    const hookScale = 0.03; // Escala do anzol
     this.hook.setScale(hookScale);
     this.hook.setOrigin(0.5, 0.5);
     this.hookGravity = false;
     this.hookStartX = this.player.x;
-    this.hookStartY = this.player.y - 10;
+    this.hookStartY = this.player.y - 10; // Posição inicial do anzol baseado na posição do player
   }
 
   updateHookMovement(delta) {
     if (!this.hook) return;
 
-    const deltaSeconds = delta / 1000;
+    const deltaSeconds = delta / 1000; // Delta em segundos
 
     if (this.isHookSwinging) {
       // movimento pendular
@@ -107,11 +121,11 @@ class MainScene extends Phaser.Scene {
       const moveY = Math.sin(angleRad) * this.hookSpeed * deltaSeconds;
 
       if (!this.hookReturning) {
-        // Moving outward
+        // Movimento para frente
         this.hook.x -= moveX;
         this.hook.y -= moveY;
 
-        // Check for screen boundaries
+        // Checa se saiu da tela
         if (
           this.hook.y > 768 ||
           this.hook.y < 0 ||
@@ -121,14 +135,15 @@ class MainScene extends Phaser.Scene {
           this.hookReturning = true;
         }
       } else {
-        // Returning to original position
+        // Retorno do anzol para a posição inicial
         const dx = this.hookStartX - this.hook.x;
         const dy = this.hookStartY - this.hook.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < 5) {
-          // Close enough to original position
-          this.hook.destroy();
+          // Perto o suficiente da posição inicial
+          this.hook.destroy(); // Remove o anzol
+          console.log("Anzol retornou e foi removido");
           this.hook = null;
           this.isHookSwinging = false;
           this.hookGravity = false;
@@ -136,20 +151,13 @@ class MainScene extends Phaser.Scene {
           return;
         }
 
-        // Move towards original position
+        // Voltar na direção da posição inicial
         const dirX = dx / distance;
         const dirY = dy / distance;
         this.hook.x += dirX * this.hookSpeed * deltaSeconds;
         this.hook.y += dirY * this.hookSpeed * deltaSeconds;
       }
     }
-  }
-
-  update(time, delta) {
-    // Movimento do barco com aceleração suave
-    this.movePlayer(delta);
-
-    this.updateHookMovement(delta); // Atualiza o movimento oscilante do anzol
   }
 
   movePlayer(delta) {
@@ -196,5 +204,12 @@ class MainScene extends Phaser.Scene {
       playerWidth / 2,
       1366 - playerWidth / 2
     );
+  }
+
+  update(time, delta) {
+    // Movimento do barco com aceleração suave
+    this.movePlayer(delta);
+
+    this.updateHookMovement(delta); // Atualiza o movimento oscilante do anzol
   }
 }
