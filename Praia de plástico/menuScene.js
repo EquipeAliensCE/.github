@@ -1,5 +1,3 @@
-const { Physics } = require("phaser");
-
 const size={
 width:500,
 heigth:500,
