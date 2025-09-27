@@ -1,11 +1,15 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super("MainScene");
+
+    // PLAYER
     this.playerSpeed = 300; // Velocidade do Player
     this.acceleration = 600; // Aceleração para movimento mais suave
     this.deceleration = 800; // Desaceleração
     this.cursors = null; // Cursor keys
     this.playerVelocityX = 0; // Velocidade atual do player
+
+    // HOOK
     this.hook = null; // Anzol
     this.hookStartX = 0; // Posição inicial X do anzol
     this.hookStartY = 0; // Posição inicial Y do anzol
@@ -63,6 +67,16 @@ class MainScene extends Phaser.Scene {
         this.hookGravity = true; // Começa a cair
       }
     });
+
+    // Camera
+    // Faz a câmera seguir o player
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Define os limites da câmera (o mundo pode ser maior que a tela)
+    this.cameras.main.setBounds(0, 0, size.width, size.height);
+
+    // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
+    this.cameras.main.setZoom(1.5);
   }
 
   throwHook() {
