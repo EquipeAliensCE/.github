@@ -39,10 +39,10 @@ class MainScene extends Phaser.Scene {
 
     // Player
     this.player = this.add.image(683, 600, "barcoratosprite");
-    const sizePercentage = 0.12;
+    const sizePercentage = 0.08;
     const boatScale = (1366 * sizePercentage) / this.player.width;
     this.player.setScale(boatScale);
-    this.player.setOrigin(0.5, 1);
+    this.player.setOrigin(0.5, 1.8);
 
     // Configura as teclas
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -73,7 +73,7 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, size.width, size.height);
 
     // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
-    this.cameras.main.setZoom(1.5);
+    this.cameras.main.setZoom(1.8);
   }
 
   throwHook() {
