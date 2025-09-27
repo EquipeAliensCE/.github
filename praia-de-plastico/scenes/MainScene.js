@@ -49,12 +49,9 @@ class MainScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png"); // Placeholder do mar
-    this.load.image(
-      "pescadorplaceholder", // Placeholder do pescador
-      "assets/sprites/pescadorplaceholder.png"
-    );
-    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png"); // Placeholder do anzol
+    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
+    this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
+    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png");
   }
 
   create() {
@@ -66,11 +63,11 @@ class MainScene extends Phaser.Scene {
     bg.setScale(scale);
 
     // Player
-    this.player = this.add.image(683, 600, "pescadorplaceholder");
+    this.player = this.add.image(683, 600, "barcoratosprite");
     const sizePercentage = 0.08;
-    const boatScale = (1366 * sizePercentage) / this.player.width; // Escala baseada na largura da tela (eu acho que é 1/12 do tamanho da tela)
+    const boatScale = (1366 * sizePercentage) / this.player.width;
     this.player.setScale(boatScale);
-    this.player.setOrigin(0.5, 1);
+    this.player.setOrigin(0.5, 1.8);
 
     // Configura as teclas
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -111,8 +108,8 @@ class MainScene extends Phaser.Scene {
     // Define os limites da câmera (o mundo pode ser maior que a tela)
     this.cameras.main.setBounds(0, 0, size.width, size.height);
 
-    // Aplica um zoom extra
-    this.cameras.main.setZoom(1.5);
+    // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
+    this.cameras.main.setZoom(1.8);
   }
 
   throwHook() {
