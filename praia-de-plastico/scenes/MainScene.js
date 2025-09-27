@@ -1,69 +1,70 @@
 class MainScene extends Phaser.Scene {
   constructor() {
     super("MainScene");
-
-    // GAME
-    this.gameWidth = 1366;
-    this.gameHeight = 768;
-
-    // PLAYER
-    this.playerSpeed = 300; // Velocidade do Player
-    this.acceleration = 600; // Aceleração para movimento mais suave
-    this.deceleration = 800; // Desaceleração
-    this.cursors = null; // Cursor keys
-    this.playerVelocityX = 0; // Velocidade atual do player
-    this.canMove = true; // Se o player pode se mover
-
-    // HOOK
-    this.hook = null; // Anzol
-    this.hookStartX = 0; // Posição inicial X do anzol
-    this.hookStartY = 0; // Posição inicial Y do anzol
-    this.hookVelocityX = 0; // Velocidade atual X do anzol
-    this.hookVelocityY = 0; // Velocidade atual Y do anzol
-    this.hookThrowSpeed = 400; // Velocidade de lançamento do anzol
-    this.hookSpeed = 300; // Velocidade de descida do anzol
-    this.hookGravity = false; // Se o anzol está caindo
-    this.hookReturning = false; // Se o anzol está retornando
-    this.hookSwingSpeed = 120; // Velocidade de oscilação do anzol
-    this.hookSwingDirection = 1; // Direção da oscilação (1 pra direita ou -1 pra esquerda)
-    this.isHookSwinging = false; // Se o anzol está oscilando
-
-    // CAMERA
-    this.defaultZoom = 2.0; // Zoom padrão da câmera
-    this.hookZoom = 1.5; // Zoom quando a câmera está seguindo o anzol
-    this.cameraTweenDuration = 1000; // Duração do tween da câmera em ms
-
-    // LIXO E DINHEIRO
-    this.zonasDeLixo = []; // Array para armazenar as zonas de lixo
-    this.tiposDeLixo = ['garrafa', 'osso', 'plástico', 'saco']; // Tipos de lixo disponíveis
-    this.dinheiro = 0; // Dinheiro acumulado do jogador
-    this.textoDinheiro = null; // Texto para mostrar o dinheiro na tela
-    // Respawn de zonas
-    this.ZONAS_TARGET = 6; // quantas zonas queremos manter ativas
-    this.zoneRespawnDelay = 5000; // ms entre tentativas de respawn
-    this.zoneRespawnTimer = 0; // contador
+    this.initGameConfig();
   }
 
-  resetCamera() {
-    // Transição suave com tween
-    this.tweens.add({
-      targets: this.cameras.main,
-      zoom: this.defaultZoom,
-      duration: this.cameraTweenDuration,
-      ease: "Power2",
-    });
+  // CONFIGURAÇÕES INICIAIS
+  initGameConfig() {
+    // Game
+    this.gameConfig = {
+      width: 1366,
+      height: 768,
+    };
 
-    // Transição suave para seguir o player
-    const cam = this.cameras.main;
-    cam.startFollow(this.player);
-    this.tweens.add({
-      targets: cam._follow,
-      lerp: 0.1,
-      duration: this.cameraTweenDuration,
-      ease: "Power2",
-    });
+    // Player
+    this.playerConfig = {
+      speed: 300,
+      acceleration: 600,
+      deceleration: 800,
+      velocityX: 0,
+      canMove: true,
+    };
+
+    // Hook
+    this.hookConfig = {
+      hook: null,
+      startX: 0,
+      startY: 0,
+      velocityX: 0,
+      velocityY: 0,
+      throwSpeed: 400,
+      speed: 300,
+      gravity: false,
+      returning: false,
+      swingSpeed: 120,
+      swingDirection: 1,
+      isSwinging: false,
+    };
+
+    // Camera
+    this.cameraConfig = {
+      defaultZoom: 2.0,
+      hookZoom: 1.5,
+      tweenDuration: 1000,
+    };
+
+    // Trash
+    this.trashConfig = {
+      zones: [],
+      types: ["garrafa", "osso", "plástico", "saco"],
+      targetZones: 6,
+      respawnDelay: 5000,
+      respawnTimer: 0,
+      minDistance: 220,
+    };
+
+    this.zonasDeLixo = [];
+
+    // UI
+    this.uiConfig = {
+      money: 0,
+      moneyText: null,
+      moneyContainer: null,
+    };
   }
 
+  // PRELOAD
   preload() {
     this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
     this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
@@ -74,91 +75,173 @@ class MainScene extends Phaser.Scene {
     this.load.image("saco", "assets/sprites/Saco.png");
   }
 
+  // LOAD ASSETS
+  loadAssets() {
+    const assets = [
+      { key: "marplaceholder", path: "assets/sprites/marplaceholder.png" },
+      { key: "barcoratosprite", path: "assets/sprites/barcoratosprite.png" },
+      { key: "anzolplaceholder", path: "assets/sprites/anzolplaceholder.png" },
+      { key: "garrafa", path: "assets/sprites/Garrafa.png" },
+      { key: "osso", path: "assets/sprites/Osso.png" },
+      { key: "plástico", path: "assets/sprites/plástico.png" },
+      { key: "saco", path: "assets/sprites/Saco.png" },
+    ];
+
+    assets.forEach((asset) => this.load.image(asset.key, asset.path));
+  }
+
   create() {
-    // BACKGROUND
+    this.setupBackground();
+    this.setupPlayer();
+    this.setupInputs();
+    this.setupCamera();
+    this.setupTrashZones();
+    this.setupMoneyUI();
+  }
 
-    const bg = this.add.image(683, 384, "marplaceholder");
-    const scaleX = 1366 / bg.width; // EU SEI QUE TÁ ERRADO MAS NÃO MEXE NESSA PORRA PQ SE NÃO QUEBRA
-    const scaleY = 768 / bg.height;
-    const scale = Math.max(scaleX, scaleY); // Preenche a tela
-    bg.setScale(scale);
+  // SETUP METHODS
 
-    // PLAYER
+  setupBackground() {
+    const bg = this.add.image(
+      this.gameConfig.width / 2,
+      this.gameConfig.height / 2,
+      "marplaceholder"
+    );
+    const scaleX = this.gameConfig.width / bg.width;
+    const scaleY = this.gameConfig.height / bg.height;
+    bg.setScale(Math.max(scaleX, scaleY));
+  }
 
-    this.player = this.add.image(683, 700, "barcoratosprite");
-    const sizePercentage = 0.08;
-    const boatScale = (1366 * sizePercentage) / this.player.width;
-    this.player.setScale(boatScale);
-    this.player.setOrigin(0.5, 1.8);
+  setupPlayer() {
+    this.player = this.add.image(
+      this.gameConfig.width / 2,
+      700,
+      "barcoratosprite"
+    );
+    const scale = (this.gameConfig.width * 0.08) / this.player.width;
+    this.player.setScale(scale).setOrigin(0.5, 1.8);
+  }
 
-    // INPUTS
-
+  setupInputs() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-
-    // LANÇAR ANZOL
-
-    this.input.keyboard.on("keydown-SPACE", () => {
-      if (!this.hook) {
-        this.throwHook();
-        this.isHookSwinging = true; // Checa se o anzol está oscilando
-        this.canMove = false; // Para o movimento do player
-
-        // Câmera segue o anzol com zoom
-        this.cameras.main.startFollow(this.hook);
-        this.tweens.add({
-          targets: this.cameras.main,
-          zoom: this.hookZoom,
-          duration: this.cameraTweenDuration,
-          ease: "Power2",
-        });
-      } else if (this.isHookSwinging) {
-        // Calcula as velocidades baseadas no ângulo
-        const angleRad = Phaser.Math.DegToRad(this.hook.angle - 90); // -90 para corrigir o ângulo
-        this.hookVelocityX = Math.cos(angleRad) * this.hookThrowSpeed; // Altera a velocidade X com base na hookThrowSpeed e angulo
-        this.hookVelocityY = Math.sin(angleRad) * this.hookThrowSpeed; // Altera a velocidade Y com base na hookThrowSpeed e angulo
-
-        this.isHookSwinging = false; // Para de oscilar
-        this.hookGravity = true; // Começa a cair
-      }
-    });
-
-    // CAMERA
-    // Faz a câmera seguir o player
-    this.cameras.main.startFollow(this.player, true);
-    this.cameras.main.setFollowOffset(0, 0); // Centraliza o player na câmera
-    this.cameras.main.setDeadzone(0, 0); // Remove a zona morta para seguir o player imediatamente
-
-    // Define os limites da câmera (o mundo pode ser maior que a tela)
-    this.cameras.main.setBounds(0, 0, this.gameWidth, this.gameHeight);
-
-    // Aplica um zoom extra (metade da tela = zoom 2x no jogador)
-    this.cameras.main.setZoom(1.8);
-
-    // Criar zonas de lixo
-    this.criarZonasDeLixo();
-
-    // Criar UI fixa para o dinheiro (container para ficar junto da câmera)
-    // Isso garante que o texto sempre apareça independente do zoom/scroll
-    const moneyBg = this.add.rectangle(0, 0, 180, 48, 0x000000, 0.6).setOrigin(0);
-    const moneyText = this.add.text(10, 8, 'R$ 0', {
-      fontSize: '26px',
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0);
-    this.uiMoney = this.add.container(16, 16, [moneyBg, moneyText]);
-    this.uiMoney.setScrollFactor(0); // fixa na tela (não se move com a câmera)
-    this.uiMoney.setDepth(10000);
-    this.textoDinheiro = moneyText; // referencia para atualizações futuras
-    // Garantir escala inicial estável (será ajustada no update conforme o zoom)
-    this.uiMoney.setScale(1);
+    this.setupHookControls();
   }
 
-  criarZonasDeLixo() {
+  setupCamera() {
+    const cam = this.cameras.main;
+    cam.startFollow(this.player, true);
+    cam.setFollowOffset(0, 0);
+    cam.setDeadzone(0, 0);
+    cam.setBounds(0, 0, this.gameConfig.width, this.gameConfig.height);
+    cam.setZoom(this.cameraConfig.defaultZoom);
+  }
+
+  setupMoneyUI() {
+    // Background preto semi-transparente
+    const moneyBg = this.add
+      .rectangle(0, 0, 180, 48, 0x000000, 0.6)
+      .setOrigin(0);
+
+    // Texto do dinheiro
+    const moneyText = this.add
+      .text(10, 8, `R$ ${this.uiConfig.money}`, {
+        fontSize: "26px",
+        fill: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0);
+
+    // Cria o container na posição correta considerando o zoom
+    const uiX = 20;
+    const uiY = 20;
+
+    // Agrupa background e texto em um container
+    this.uiMoney = this.add.container(uiX, uiY, [moneyBg, moneyText]);
+
+    // Configurações importantes do container
+    this.uiMoney.setScrollFactor(0); // Fixa na tela
+    this.uiMoney.setDepth(999); // Sempre na frente
+
+    // Salva referência ao texto para atualizações
+    this.textoDinheiro = moneyText;
+
+    // Ajusta a escala baseada no zoom da câmera
+    const scale = 1 / this.cameras.main.zoom;
+    this.uiMoney.setScale(scale);
+  }
+
+  // HOOK METHODS
+
+  setupHookControls() {
+    this.input.keyboard.on("keydown-SPACE", () => {
+      if (!this.hookConfig.hook) {
+        this.throwHook();
+        this.hookConfig.isSwinging = true;
+        this.playerConfig.canMove = false;
+        this.followHookWithCamera();
+      } else if (this.hookConfig.isSwinging) {
+        this.startHookThrow();
+      }
+    });
+  }
+
+  throwHook() {
+    // Cria o anzol
+    const hookStartPosition = {
+      x: this.player.x,
+      y: this.player.y - 80,
+    };
+
+    this.hookConfig.hook = this.add.image(
+      hookStartPosition.x,
+      hookStartPosition.y,
+      "anzolplaceholder"
+    );
+
+    // Configuração inicial do anzol
+    const hookScale = 0.03;
+    this.hookConfig.hook.setScale(hookScale);
+    this.hookConfig.hook.setOrigin(0.5, 0.5);
+
+    // Armazena posição inicial para o retorno
+    this.hookConfig.startX = hookStartPosition.x;
+    this.hookConfig.startY = hookStartPosition.y;
+
+    // Reseta estados do anzol
+    this.hookConfig.gravity = false;
+    this.hookConfig.returning = false;
+  }
+
+  startHookThrow() {
+    // Calcula o ângulo em radianos (-90 para ajustar a direção inicial)
+    const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+
+    // Calcula as componentes de velocidade baseadas no ângulo
+    this.hookConfig.velocityX = Math.cos(angleRad) * this.hookConfig.throwSpeed;
+    this.hookConfig.velocityY = Math.sin(angleRad) * this.hookConfig.throwSpeed;
+
+    // Atualiza estados do anzol
+    this.hookConfig.isSwinging = false;
+    this.hookConfig.gravity = true;
+
+    // Configura a câmera para seguir o anzol
+    this.cameras.main.startFollow(this.hookConfig.hook);
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.cameraConfig.hookZoom,
+      duration: this.cameraConfig.tweenDuration,
+      ease: "Power2",
+    });
+  }
+
+  // TRASH METHODS
+
+  setupTrashZones() {
     // Criar N zonas iniciais usando spawnSingleZone
-    for (let i = 0; i < this.ZONAS_TARGET; i++) {
+    for (let i = 0; i < this.trashConfig.targetZones; i++) {
       // tenta encontrar uma posição adequada evitando sobreposição
       let attempts = 0;
       const minDistanceBetweenZones = 220;
@@ -171,13 +254,19 @@ class MainScene extends Phaser.Scene {
         y = Phaser.Math.Between(minY, maxY);
         y = Phaser.Math.Clamp(y, 200, 760);
         attempts++;
-      } while (this.zonasDeLixo.some(z => Phaser.Math.Distance.Between(z.x, z.y, x, y) < minDistanceBetweenZones) && attempts < 40);
+      } while (
+        this.zonasDeLixo.some(
+          (z) =>
+            Phaser.Math.Distance.Between(z.x, z.y, x, y) <
+            minDistanceBetweenZones
+        ) &&
+        attempts < 40
+      );
 
       this.spawnSingleZone(x, y);
     }
   }
 
-  // Cria e retorna uma zona simples (usada no spawn inicial e no respawn)
   spawnSingleZone(x, y) {
     // Grupo visual que contém sprites de lixo para representar "mancha" de lixo
     const zonaGroup = this.add.group();
@@ -186,17 +275,24 @@ class MainScene extends Phaser.Scene {
     const needed = Phaser.Math.Between(3, 5);
     // Gera posições dentro da zona evitando sobreposição
     for (let j = 0; j < needed; j++) {
-      let px, py, posAttempts = 0;
+      let px,
+        py,
+        posAttempts = 0;
       do {
         px = Phaser.Math.Between(-50, 50);
         py = Phaser.Math.Between(-30, 30);
         posAttempts++;
-      } while (positions.some(p => Phaser.Math.Distance.Between(p.x, p.y, px, py) < 40) && posAttempts < 30);
+      } while (
+        positions.some(
+          (p) => Phaser.Math.Distance.Between(p.x, p.y, px, py) < 40
+        ) &&
+        posAttempts < 30
+      );
       positions.push({ x: px, y: py });
     }
 
     for (let k = 0; k < positions.length; k++) {
-      const tipo = Phaser.Math.RND.pick(this.tiposDeLixo);
+      const tipo = Phaser.Math.RND.pick(this.trashConfig.types);
       const s = this.add.image(x + positions[k].x, y + positions[k].y, tipo);
       s.setScale(0.04);
       s.setAlpha(0.95);
@@ -229,140 +325,115 @@ class MainScene extends Phaser.Scene {
     return zonaLixo;
   }
 
-  coletarLixo(zona) {
-    // Incrementa contador de coletas desta zona
-    zona.coletas = (zona.coletas || 0) + 1;
+  // UPDATE METHODS
 
-    // Escolher um tipo de lixo aleatório
-    const lixoAleatorio = Phaser.Math.RND.pick(this.tiposDeLixo);
+  update(time, delta) {
+    this.updatePlayer(delta);
+    this.updateHook(delta);
+    this.updateTrashZones(delta);
+  }
 
-    // Criar sprite do lixo na posição do anzol
-    const lixo = this.add.image(this.hook.x, this.hook.y, lixoAleatorio);
-    lixo.setScale(0.05); // Ajustar escala do lixo
+  updatePlayer(delta) {
+    const deltaTime = delta / 1000; // Converte para segundos
 
-    // Adicionar dinheiro
-    const valorLixo = Phaser.Math.Between(10, 50);
-    this.dinheiro += valorLixo;
-    if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.dinheiro}`);
+    if (!this.playerConfig.canMove) return; // Usa playerConfig
 
-    // Animação do lixo subindo
-    this.tweens.add({
-      targets: lixo,
-      y: this.hook.y - 50,
-      alpha: 0,
-      duration: 800,
-      onComplete: () => {
-        lixo.destroy();
+    // Aceleração/desaceleração
+    if (this.cursors.left.isDown || this.keyA.isDown) {
+      this.player.setFlipX(false);
+      this.playerConfig.velocityX -= this.playerConfig.acceleration * deltaTime;
+    } else if (this.cursors.right.isDown || this.keyD.isDown) {
+      this.player.setFlipX(true);
+      this.playerConfig.velocityX += this.playerConfig.acceleration * deltaTime;
+    } else {
+      // Desaceleração
+      if (this.playerConfig.velocityX > 0) {
+        this.playerConfig.velocityX = Math.max(
+          0,
+          this.playerConfig.velocityX -
+            this.playerConfig.deceleration * deltaTime
+        );
+      } else if (this.playerConfig.velocityX < 0) {
+        this.playerConfig.velocityX = Math.min(
+          0,
+          this.playerConfig.velocityX +
+            this.playerConfig.deceleration * deltaTime
+        );
       }
-    });
-
-    // Se coletou 3 vezes, remove a zona com efeito
-    const REMOVER_APOS = 3;
-    if (zona.coletas >= REMOVER_APOS) {
-      // Anima e destrói sprites do grupo de lixo
-      if (zona.lixoGroup) {
-        this.tweens.add({
-          targets: zona.lixoGroup.getChildren(),
-          alpha: 0,
-          scale: 0,
-          duration: 800,
-          onComplete: () => {
-            zona.lixoGroup.clear(true, true);
-          }
-        });
-      }
-      // Remove debug graphics se existir
-      if (zona.debugGraphics) zona.debugGraphics.destroy();
-      // Remove a zona da lista para não colidir mais
-      const idx = this.zonasDeLixo.indexOf(zona);
-      if (idx > -1) this.zonasDeLixo.splice(idx, 1);
     }
 
-    // Iniciar retorno do anzol
-    this.hookReturning = true;
-  }
-
-  throwHook() {
-    // Calcula a posição inicial correta
-    const hookStartPosition = {
-      x: this.player.x,
-      y: this.player.y - 80, // Mesma posição onde o anzol é criado
-    };
-
-    // Cria o anzol
-    this.hook = this.add.image(
-      hookStartPosition.x,
-      hookStartPosition.y,
-      "anzolplaceholder"
+    // Limita a velocidade máxima
+    this.playerConfig.velocityX = Phaser.Math.Clamp(
+      this.playerConfig.velocityX,
+      -this.playerConfig.speed,
+      this.playerConfig.speed
     );
-    const hookScale = 0.03;
-    this.hook.setScale(hookScale);
-    this.hook.setOrigin(0.5, 0.5);
 
-    // Armazena as posições iniciais corretamente
-    this.hookStartX = hookStartPosition.x;
-    this.hookStartY = hookStartPosition.y;
+    // Aplica o movimento
+    this.player.x += this.playerConfig.velocityX * deltaTime;
 
-    this.hookGravity = false;
-    this.hookReturning = false;
+    // Limita o movimento para não sair da tela
+    const playerWidth = this.player.displayWidth;
+    this.player.x = Phaser.Math.Clamp(
+      this.player.x,
+      playerWidth / 2,
+      this.gameConfig.width - playerWidth / 2
+    );
   }
 
-  updateHookMovement(delta) {
-    if (!this.hook) return;
+  updateHook(delta) {
+    if (!this.hookConfig.hook) return;
 
-    const deltaSeconds = delta / 1000; // Delta em segundos
+    const deltaSeconds = delta / 1000;
 
-    if (this.isHookSwinging) {
-      // movimento pendular
-      this.hook.angle +=
-        this.hookSwingSpeed * this.hookSwingDirection * deltaSeconds;
+    if (this.hookConfig.isSwinging) {
+      // Movimento pendular
+      this.hookConfig.hook.angle +=
+        this.hookConfig.swingSpeed *
+        this.hookConfig.swingDirection *
+        deltaSeconds;
 
       // Inverte a direção nos limites
-      if (this.hook.angle >= 90) {
-        this.hook.angle = 90;
-        this.hookSwingDirection = -1;
-      } else if (this.hook.angle <= -90) {
-        this.hook.angle = -90;
-        this.hookSwingDirection = 1;
+      if (this.hookConfig.hook.angle >= 90) {
+        this.hookConfig.hook.angle = 90;
+        this.hookConfig.swingDirection = -1;
+      } else if (this.hookConfig.hook.angle <= -90) {
+        this.hookConfig.hook.angle = -90;
+        this.hookConfig.swingDirection = 1;
       }
-    } else if (this.hookGravity) {
-      // Converte o ângulo para radianos e ajusta para que 0° seja para baixo
-      const angleRad = Phaser.Math.DegToRad(this.hook.angle - 90);
+    } else if (this.hookConfig.gravity) {
+      const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+      const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
+      const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
 
-      // Calcula as componentes do movimento
-      const moveX = Math.cos(angleRad) * this.hookSpeed * deltaSeconds;
-      const moveY = Math.sin(angleRad) * this.hookSpeed * deltaSeconds;
-
-      if (!this.hookReturning) {
-        // Movimento para frente
-        this.hook.x -= moveX;
-        this.hook.y -= moveY;
+      if (!this.hookConfig.returning) {
+        this.hookConfig.hook.x -= moveX;
+        this.hookConfig.hook.y -= moveY;
 
         // Checa se saiu da tela
-        const margin = 20; // margem de segurança
         if (
-          this.hook.y > this.gameHeight + margin ||
-          this.hook.y < -margin ||
-          this.hook.x < -margin ||
-          this.hook.x > this.gameWidth + margin
+          this.hookConfig.hook.y > this.gameConfig.height + 20 ||
+          this.hookConfig.hook.y < -20 ||
+          this.hookConfig.hook.x < -20 ||
+          this.hookConfig.hook.x > this.gameConfig.width + 20
         ) {
-          this.hookReturning = true;
+          this.hookConfig.returning = true;
         }
       } else {
         // Retorno do anzol para a posição inicial
-        const dx = this.hookStartX - this.hook.x;
-        const dy = this.hookStartY - this.hook.y;
+        const dx = this.hookConfig.startX - this.hookConfig.hook.x;
+        const dy = this.hookConfig.startY - this.hookConfig.hook.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < 5) {
           // Perto o suficiente da posição inicial
-          this.hook.destroy(); // Remove o anzol
+          this.hookConfig.hook.destroy(); // Remove o anzol
           console.log("Anzol retornou e foi removido");
-          this.hook = null;
-          this.isHookSwinging = false;
-          this.hookGravity = false;
-          this.hookReturning = false;
-          this.canMove = true; // Permite o movimento do player
+          this.hookConfig.hook = null;
+          this.hookConfig.isSwinging = false;
+          this.hookConfig.gravity = false;
+          this.hookConfig.returning = false;
+          this.playerConfig.canMove = true; // Permite o movimento do player
           this.resetCamera(); // Reset camera to follow player
           return;
         }
@@ -370,90 +441,51 @@ class MainScene extends Phaser.Scene {
         // Voltar na direção da posição inicial
         const dirX = dx / distance;
         const dirY = dy / distance;
-        this.hook.x += dirX * this.hookSpeed * deltaSeconds;
-        this.hook.y += dirY * this.hookSpeed * deltaSeconds;
+        this.hookConfig.hook.x += dirX * this.hookConfig.speed * deltaSeconds;
+        this.hookConfig.hook.y += dirY * this.hookConfig.speed * deltaSeconds;
       }
     }
 
-     if (this.hookGravity && !this.hookReturning) {
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
       // Verificar colisão com zonas de lixo
-      this.zonasDeLixo.forEach(zona => {
+      this.zonasDeLixo.forEach((zona) => {
         const bounds = zona.getBounds();
-        if (Phaser.Geom.Rectangle.Contains(bounds, this.hook.x, this.hook.y)) {
+        if (
+          Phaser.Geom.Rectangle.Contains(
+            bounds,
+            this.hookConfig.hook.x,
+            this.hookConfig.hook.y
+          )
+        ) {
           this.coletarLixo(zona);
         }
       });
     }
 
-  }
-
-  movePlayer(delta) {
-    const deltaTime = delta / 1000; // Converte para segundos
-
-    if (!this.canMove) return; // Se não pode mover, sai da função
-
-    // Aceleração/desaceleração
-    if (this.cursors.left.isDown || this.keyA.isDown) {
-      this.player.setFlipX(false); // Olha para a direita
-      this.playerVelocityX -= this.acceleration * deltaTime;
-    } else if (this.cursors.right.isDown || this.keyD.isDown) {
-      this.player.setFlipX(true); // Olha para a esquerda
-      this.playerVelocityX += this.acceleration * deltaTime;
-    } else {
-      // Desaceleração quando nenhuma tecla está pressionada
-      if (this.playerVelocityX > 0) {
-        // Movendo para a direita
-        this.playerVelocityX = Math.max(
-          0,
-          this.playerVelocityX - this.deceleration * deltaTime
-        );
-      } else if (this.playerVelocityX < 0) {
-        // Movendo para a esquerda
-        this.playerVelocityX = Math.min(
-          0,
-          this.playerVelocityX + this.deceleration * deltaTime
-        );
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
+      // Check if zonasDeLixo exists before using forEach
+      if (this.zonasDeLixo) {
+        this.zonasDeLixo.forEach((zona) => {
+          const bounds = zona.getBounds();
+          if (
+            Phaser.Geom.Rectangle.Contains(
+              bounds,
+              this.hookConfig.hook.x,
+              this.hookConfig.hook.y
+            )
+          ) {
+            this.coletarLixo(zona);
+          }
+        });
       }
     }
-
-    // Limita a velocidade máxima
-    this.playerVelocityX = Phaser.Math.Clamp(
-      this.playerVelocityX,
-      -this.playerSpeed,
-      this.playerSpeed
-    );
-
-    // Aplica o movimento
-    this.player.x += this.playerVelocityX * deltaTime;
-
-    // Limita o movimento para não sair da tela
-    const playerWidth = this.player.displayWidth;
-    this.player.x = Phaser.Math.Clamp(
-      this.player.x,
-      playerWidth / 2,
-      1366 - playerWidth / 2
-    );
   }
 
-  update(time, delta) {
-    // Movimento do barco com aceleração suave
-    this.movePlayer(delta);
-
-    this.updateHookMovement(delta); // Atualiza o movimento oscilante do anzol
-
-    // Mantém o texto do dinheiro legível mesmo com zoom da câmera
-    // Mantém o painel de dinheiro sempre visível e em escala 1 (fi xo na tela)
-    if (this.uiMoney) {
-      this.uiMoney.setScale(1);
-      if (this.textoDinheiro) this.textoDinheiro.setScale(1);
-    }
-
-    // Respawn dinâmico de zonas: tenta manter pelo menos ZONAS_TARGET zonas
-    this.zoneRespawnTimer += delta;
-    if (this.zoneRespawnTimer >= this.zoneRespawnDelay) {
-      this.zoneRespawnTimer = 0;
-      // enquanto tivermos menos zonas que o alvo, spawn uma nova
-      while (this.zonasDeLixo.length < this.ZONAS_TARGET) {
+  updateTrashZones(delta) {
+    this.trashConfig.respawnTimer += delta;
+    if (this.trashConfig.respawnTimer >= this.trashConfig.respawnDelay) {
+      this.trashConfig.respawnTimer = 0;
+      while (this.zonasDeLixo.length < this.trashConfig.targetZones) {
         // tenta achar uma posição válida
         let attempts = 0;
         const minDistanceBetweenZones = 220;
@@ -466,10 +498,111 @@ class MainScene extends Phaser.Scene {
           y = Phaser.Math.Between(minY, maxY);
           y = Phaser.Math.Clamp(y, 200, 760);
           attempts++;
-        } while (this.zonasDeLixo.some(z => Phaser.Math.Distance.Between(z.x, z.y, x, y) < minDistanceBetweenZones) && attempts < 50);
+        } while (
+          this.zonasDeLixo.some(
+            (z) =>
+              Phaser.Math.Distance.Between(z.x, z.y, x, y) <
+              minDistanceBetweenZones
+          ) &&
+          attempts < 50
+        );
 
         this.spawnSingleZone(x, y);
       }
     }
+  }
+
+  resetCamera() {
+    // Transição suave com tween
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.cameraConfig.defaultZoom,
+      duration: this.cameraConfig.tweenDuration,
+      ease: "Power2",
+    });
+
+    // Transição suave para seguir o player
+    const cam = this.cameras.main;
+    cam.startFollow(this.player);
+    this.tweens.add({
+      targets: cam._follow,
+      lerp: 0.1,
+      duration: this.cameraTweenDuration,
+      ease: "Power2",
+    });
+  }
+
+  followHookWithCamera() {
+    this.cameras.main.startFollow(this.hookConfig.hook);
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.cameraConfig.hookZoom,
+      duration: this.cameraConfig.tweenDuration,
+      ease: "Power2",
+    });
+  }
+
+  coletarLixo(zona) {
+    // Incrementa contador de coletas desta zona
+    zona.coletas = (zona.coletas || 0) + 1;
+
+    // Escolher um tipo de lixo aleatório
+    const lixoAleatorio = Phaser.Math.RND.pick(this.trashConfig.types);
+
+    // Criar sprite do lixo na posição do anzol
+    const lixo = this.add.image(
+      this.hookConfig.hook.x,
+      this.hookConfig.hook.y,
+      lixoAleatorio
+    );
+    lixo.setScale(0.05);
+
+    // Adicionar dinheiro
+    const valorLixo = Phaser.Math.Between(10, 50);
+    this.uiConfig.money += valorLixo;
+
+    // Atualizar texto com o novo valor
+    if (this.textoDinheiro) {
+      this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+    }
+
+    // Animação do lixo subindo
+    this.tweens.add({
+      targets: lixo,
+      y: this.hookConfig.hook.y - 50,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => {
+        lixo.destroy();
+      },
+    });
+
+    // Se coletou 3 vezes, remove a zona com efeito
+    const REMOVER_APOS = 3;
+    if (zona.coletas >= REMOVER_APOS) {
+      if (zona.lixoGroup) {
+        this.tweens.add({
+          targets: zona.lixoGroup.getChildren(),
+          alpha: 0,
+          scale: 0,
+          duration: 800,
+          onComplete: () => {
+            zona.lixoGroup.clear(true, true);
+          },
+        });
+      }
+
+      if (zona.debugGraphics) {
+        zona.debugGraphics.destroy();
+      }
+
+      const idx = this.zonasDeLixo.indexOf(zona);
+      if (idx > -1) {
+        this.zonasDeLixo.splice(idx, 1);
+      }
+    }
+
+    // Iniciar retorno do anzol
+    this.hookConfig.returning = true;
   }
 }
