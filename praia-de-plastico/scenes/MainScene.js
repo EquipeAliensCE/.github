@@ -244,39 +244,23 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMoneyUI() {
-    // Background preto semi-transparente
-    const moneyBg = this.add
-      .rectangle(0, 0, 180, 48, 0x000000, 0.6)
-      .setOrigin(0);
+  this.textoDinheiro = this.add.text(this.player.x - 242, this.player.y - 278, "R$ 0", {
+    fontSize: "32px",
+    fill: "#000000ff",
+    fontStyle: "bold",
+  });
 
-    // Texto do dinheiro
-    const moneyText = this.add
-      .text(10, 8, `R$ ${this.uiConfig.money}`, {
-        fontSize: "26px",
-        fill: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0);
+  this.textoDinheiro.setOrigin(1, 0); // origem no canto superior direito
 
-    // Cria o container na posição correta considerando o zoom
-    const uiX = 20;
-    const uiY = 20;
+  // fixa na tela
+  this.textoDinheiro.setScrollFactor(0);
 
-    // Agrupa background e texto em um container
-    this.uiMoney = this.add.container(uiX, uiY, [moneyBg, moneyText]);
+  // garante que tá na frente
+  this.textoDinheiro.setDepth(9999);
 
-    // Configurações importantes do container
-    this.uiMoney.setScrollFactor(0); // Fixa na tela
-    this.uiMoney.setDepth(999); // Sempre na frente
-
-    // Salva referência ao texto para atualizações
-    this.textoDinheiro = moneyText;
-
-    // Ajusta a escala baseada no zoom da câmera
-    const scale = 1 / this.cameras.main.zoom;
-    this.uiMoney.setScale(scale);
-  }
+  console.log("UI criada:", this.textoDinheiro);
+  console.log(this.textoDinheiro.x, this.textoDinheiro.y, this.textoDinheiro.depth);
+}
 
   // HOOK METHODS
 
@@ -339,17 +323,27 @@ class MainScene extends Phaser.Scene {
   // TRASH METHODS
 
 setupTrashZones() {
-  for (let i = 0; i < this.trashConfig.targetZones; i++) {
+  // Aumenta a quantidade de zonas
+  const totalZonas = 12; // por exemplo, 12 zonas
+  for (let i = 0; i < totalZonas; i++) {
     let attempts = 0;
     const minDistanceBetweenZones = 220;
-    let x, y;
+    let x, y, profundidade;
+
     do {
+      // Posição X aleatória em torno do player
       const offsetX = Phaser.Math.Between(-500, 500);
       x = Phaser.Math.Clamp(this.player.x + offsetX, 60, 1366 - 60);
-      const minY = this.player.y + 160;
-      const maxY = Math.min(760, this.player.y + 520);
+
+      // Escolhe profundidade aleatória
+      profundidade = Phaser.Math.RND.pick([1, 2, 3]); // 1 rasa, 2 média, 3 profunda
+
+      // Y baseado na profundidade
+      const minY = this.player.y + 150 + (profundidade - 1) * 120;
+      const maxY = this.player.y + 300 + (profundidade - 1) * 120;
       y = Phaser.Math.Between(minY, maxY);
-      y = Phaser.Math.Clamp(y, 200, 760);
+      y = Phaser.Math.Clamp(y, 200, this.gameConfig.height - 100);
+
       attempts++;
     } while (
       this.zonasDeLixo.some(
@@ -357,11 +351,11 @@ setupTrashZones() {
       ) && attempts < 40
     );
 
-    this.spawnSingleZone(x, y);
+    this.spawnSingleZone(x, y, profundidade);
   }
 }
 
-spawnSingleZone(x, y) {
+spawnSingleZone(x, y, profundidade = 1) {
   const zonaGroup = this.add.group();
   const positions = [];
   const needed = Phaser.Math.Between(3, 3);
@@ -391,6 +385,7 @@ spawnSingleZone(x, y) {
   const zonaLixo = this.add.zone(x, y, 160, 120);
   zonaLixo.x = x;
   zonaLixo.y = y;
+  zonaLixo.profundidade = profundidade; // salva a profundidade
   zonaLixo.lixoGroup = zonaGroup;
   zonaLixo.coletas = 0;
 
@@ -402,12 +397,12 @@ spawnSingleZone(x, y) {
     }
   }
 
+  // Debug gráfico opcional
   const g = this.add.graphics();
-  g.lineStyle(2, 0xff0000);
+  g.lineStyle(2, profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000);
   g.strokeRect(x - 80, y - 60, 160, 120);
-  g.setDepth(100);
+  g.setDepth(9999);
   zonaLixo.debugGraphics = g;
-  g.setDepth(9999)
 
   this.zonasDeLixo.push(zonaLixo);
   return zonaLixo;
@@ -722,9 +717,14 @@ createPopup() {
     });
   }
 
-  // Adiciona dinheiro
-  const valorLixo = Phaser.Math.Between(10, 50);
-  this.uiConfig.money += valorLixo;
+  // Adiciona dinheiro baseado na profundidade
+  let valorLixo = Phaser.Math.Between(10, 50);
+
+  // Multiplicador por profundidade
+  if (zona.profundidade === 2) valorLixo *= 1.5; // média
+  else if (zona.profundidade === 3) valorLixo *= 2; // profunda
+
+  this.uiConfig.money += Math.floor(valorLixo);
   if (this.textoDinheiro) {
     this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
   }
