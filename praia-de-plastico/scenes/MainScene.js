@@ -9,7 +9,7 @@ class MainScene extends Phaser.Scene {
     // Game
     this.gameConfig = {
       width: 1366,
-      height: 1800, // 768
+      height: 1300, // 768
     };
 
     // Player
@@ -67,12 +67,30 @@ class MainScene extends Phaser.Scene {
     // MOSCAO
     this.shopConfig = {
       npc: null,
-      isVisible: false,
-      spawnDelay: 4000, // 4 segundo de delay para spawnar
-      lastHookTime: 0, // Armazena quando o anzol foi usado pela última vez
-      scale: 0.09,
-      spawnDistance: 600, // Aumentado para garantir que fique fora da bound da câmera
+    isVisible: false,
+    spawnDelay: 4000,
+    lastHookTime: 0,
+    scale: 0.09,
+    spawnDistance: 600,
+    interactionRange: 80, 
+    interactionText: null,
     };
+
+    // UPGRADES
+
+   this.shopUpgrades = {
+  estrela: {
+    cost: 100,
+    unlocked: false,     // se o player comprou
+    active: false,       // se tá ligado nesse lançamento
+    usedThisLaunch: false, // se já foi usado nesse disparo
+    effect: () => {
+      this.shopUpgrades.estrela.active = true;
+      this.shopUpgrades.estrela.usedThisLaunch = false;
+    }
+  }
+};
+
   }
 
   // PRELOAD
@@ -251,7 +269,7 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMoneyUI() {
-  this.textoDinheiro = this.add.text(this.player.x - 242, this.player.y - 278, "R$ 0", {
+  this.textoDinheiro = this.add.text(this.player.x - 324, this.player.y - 401, "R$ 0", {
     fontSize: "32px",
     fill: "#000000ff",
     fontStyle: "bold",
@@ -272,7 +290,10 @@ class MainScene extends Phaser.Scene {
   // HOOK METHODS
 
   throwHook() {
-    // Cria o anzol
+  if (this.shopUpgrades.estrela.unlocked) {
+    this.shopUpgrades.estrela.effect(); // ativa o upgrade nesse disparo
+    this.shopUpgrades.estrela.unlocked = false; // ⚡ reseta, tem que comprar de novo
+  }
     const hookStartPosition = {
       x: this.player.x + 10,
       y: this.player.y - 10,
@@ -471,10 +492,22 @@ spawnSingleZone(x, y, profundidade = 1) {
   // MOSCAO METHODS
 
   setupShopkeeper() {
-    this.shopConfig.npc = this.add.image(0, 0, "moscaoplaceholder"); // Substituir pela sprite correta do lojista
+    this.shopConfig.npc = this.add.image(0, 0, "moscaoplaceholder");
     this.shopConfig.npc.setScale(this.shopConfig.scale);
     this.shopConfig.npc.setDepth(1);
     this.shopConfig.npc.setVisible(false);
+
+    // Texto de interação, inicialmente invisível
+    this.shopConfig.interactionText = this.add
+    .text(0, 0, "Pressione E para interagir", {
+      fontSize: "24px",
+      fill: "#ffffff",
+      backgroundColor: "#000000aa",
+      padding: { x: 8, y: 4 },
+    })
+    .setOrigin(0.5)
+    .setDepth(9999)
+    .setVisible(false);
   }
 
   // UPDATE METHODS
@@ -545,109 +578,86 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 
   updateHook(delta) {
-    if (!this.hookConfig.hook) return;
+  if (!this.hookConfig.hook) return;
 
-    const deltaSeconds = delta / 1000;
+  const deltaSeconds = delta / 1000;
 
-    if (this.hookConfig.isSwinging) {
-      // Movimento pendular
-      this.hookConfig.hook.angle +=
-        this.hookConfig.swingSpeed *
-        this.hookConfig.swingDirection *
-        deltaSeconds;
+  if (this.hookConfig.isSwinging) {
+    // Movimento pendular
+    this.hookConfig.hook.angle +=
+      this.hookConfig.swingSpeed *
+      this.hookConfig.swingDirection *
+      deltaSeconds;
 
-      // Inverte a direção nos limites
-      if (this.hookConfig.hook.angle >= 45) {
-        this.hookConfig.hook.angle = 45;
-        this.hookConfig.swingDirection = -1;
-      } else if (this.hookConfig.hook.angle <= -45) {
-        this.hookConfig.hook.angle = -45;
-        this.hookConfig.swingDirection = 1;
-      }
-    } else if (this.hookConfig.gravity) {
-      const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
-      const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
-      const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
+    if (this.hookConfig.hook.angle >= 45) {
+      this.hookConfig.hook.angle = 45;
+      this.hookConfig.swingDirection = -1;
+    } else if (this.hookConfig.hook.angle <= -45) {
+      this.hookConfig.hook.angle = -45;
+      this.hookConfig.swingDirection = 1;
+    }
+  } else if (this.hookConfig.gravity) {
+    const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+    const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
+    const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
 
-      if (!this.rato) {
-        this.rato = this.setupRatoSemArpao();
-        this.rato.angle = this.hookConfig.hook.angle;
-        this.rato.setOrigin(0.5, 0.5);
-      }
+    if (!this.rato) {
+      this.rato = this.setupRatoSemArpao();
+      this.rato.angle = this.hookConfig.hook.angle;
+      this.rato.setOrigin(0.5, 0.5);
+    }
 
-      this.hookConfig.hook.setTexture("arpao");
+    this.hookConfig.hook.setTexture("arpao");
 
-      if (!this.hookConfig.returning) {
-        this.hookConfig.hook.x -= moveX;
-        this.hookConfig.hook.y -= moveY;
+    if (!this.hookConfig.returning) {
+      this.hookConfig.hook.x -= moveX;
+      this.hookConfig.hook.y -= moveY;
 
-        // Checa se saiu da tela
-        if (
-          this.hookConfig.hook.y > this.gameConfig.height + 20 ||
-          this.hookConfig.hook.y < -20 ||
-          this.hookConfig.hook.x < -20 ||
-          this.hookConfig.hook.x > this.gameConfig.width + 20
-        ) {
-          this.hookConfig.returning = true;
-        }
-      } else {
-        // Retorno do anzol para a posição inicial
-        const dx = this.hookConfig.startX - this.hookConfig.hook.x;
-        const dy = this.hookConfig.startY - this.hookConfig.hook.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < 5) {
-          // Perto o suficiente da posição inicial
-          this.hookConfig.hook.destroy(); // Remove o anzol
-          console.log("Anzol retornou e foi removido");
-          if (this.rato) {
-            this.rato.destroy();
-            this.rato = null;
+      // Checa colisão com todas as zonas
+      if (this.zonasDeLixo.length > 0) {
+        this.zonasDeLixo.forEach((zona) => {
+          const bounds = zona.getBounds();
+          if (Phaser.Geom.Rectangle.Contains(bounds, this.hookConfig.hook.x, this.hookConfig.hook.y)) {
+            this.coletarLixo(zona, this.shopUpgrades.estrela.active);
           }
-          this.hookConfig.hook = null;
-          this.hookConfig.isSwinging = false;
-          this.hookConfig.gravity = false;
-          this.hookConfig.returning = false;
-          this.playerConfig.canMove = true; // Permite o movimento do player
-          this.ratoIdle.setVisible(true);
-          this.resetCamera(); // Reset camera to follow player
-          return;
-        }
+        });
+      }
 
-        // Voltar na direção da posição inicial
+      // Checa se saiu da tela
+      if (
+        this.hookConfig.hook.y > this.gameConfig.height + 20 ||
+        this.hookConfig.hook.y < -20 ||
+        this.hookConfig.hook.x < -20 ||
+        this.hookConfig.hook.x > this.gameConfig.width + 20
+      ) {
+        this.hookConfig.returning = true;
+      }
+    } else {
+      // Retorno do anzol
+      const dx = this.hookConfig.startX - this.hookConfig.hook.x;
+      const dy = this.hookConfig.startY - this.hookConfig.hook.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 5) {
+        this.hookConfig.hook.destroy();
+        if (this.rato) { this.rato.destroy(); this.rato = null; }
+        this.hookConfig.hook = null;
+        this.hookConfig.isSwinging = false;
+        this.hookConfig.gravity = false;
+        this.hookConfig.returning = false;
+        this.playerConfig.canMove = true;
+        this.ratoIdle.setVisible(true);
+        this.resetCamera();
+      } else {
         const dirX = dx / distance;
         const dirY = dy / distance;
         this.hookConfig.hook.x += dirX * this.hookConfig.speed * deltaSeconds;
         this.hookConfig.hook.y += dirY * this.hookConfig.speed * deltaSeconds;
       }
     }
-
-    if (this.hookConfig.gravity && !this.hookConfig.returning) {
-      // Check if zonasDeLixo exists before using forEach
-      if (this.zonasDeLixo) {
-        this.zonasDeLixo.forEach((zona) => {
-          const bounds = zona.getBounds();
-          console.log(
-            "Anzol:",
-            this.hookConfig.hook.x,
-            this.hookConfig.hook.y,
-            "Zona:",
-            bounds
-          );
-          if (
-            Phaser.Geom.Rectangle.Contains(
-              bounds,
-              this.hookConfig.hook.x,
-              this.hookConfig.hook.y
-            )
-          ) {
-            console.log("Entrou na zona!");
-            this.coletarLixo(zona);
-          }
-        });
-      }
-    }
   }
+}
+
 
   updateTrashZones(delta) {
     this.trashConfig.respawnTimer += delta;
@@ -696,30 +706,85 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 
   updateShopkeeper() {
-    const currentTime = this.time.now;
-    const currentZoom = this.cameras.main.zoom;
-    const isDefaultZoom =
-      Math.abs(currentZoom - this.cameraConfig.defaultZoom) < 0.1;
+    const npc = this.shopConfig.npc;
 
-    // Se o anzol está sendo usado, atualiza o tempo e esconde o moscão
-    if (this.hookConfig.isSwinging || this.hookConfig.hook) {
-      this.shopConfig.lastHookTime = currentTime;
-      if (this.shopConfig.npc && this.shopConfig.isVisible) {
-        this.shopConfig.npc.setVisible(false);
-        this.shopConfig.isVisible = false;
-      }
-      return;
+    // Checa se o NPC ainda não está visível para spawnar
+    if (!npc) return;
+
+    if (!this.shopConfig.isVisible) {
+        // Se ainda não está visível, spawn
+        this.spawnShopkeeper();
+        return; // Sai do update desse frame, só começa a checar interação no próximo
     }
 
-    // Verifica se já passou o delay após o uso do anzol
-    const hasDelayPassed =
-      currentTime - this.shopConfig.lastHookTime > this.shopConfig.spawnDelay;
+    // Distância entre jogador e NPC
+    const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        npc.x,
+        npc.y
+    );
 
-    // Tenta spawnar apenas se estiver no zoom padrão, passou o delay e o lojista não está visível
-    if (!this.shopConfig.isVisible && isDefaultZoom && hasDelayPassed) {
-      this.spawnShopkeeper();
+    if (distance <= this.shopConfig.interactionRange) {
+        // Mostra o texto
+        this.shopConfig.interactionText.setPosition(npc.x, npc.y - 60);
+        this.shopConfig.interactionText.setVisible(true);
+
+        // Tecla E
+        if (!this.keyE) 
+            this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+        if (Phaser.Input.Keyboard.JustDown(this.keyE)) {
+            this.openShopMenu();
+        }
+    } else {
+        this.shopConfig.interactionText.setVisible(false);
     }
-  }
+}
+
+openShopMenu() {
+  if (this.popupActive) return;
+  this.popupActive = true;
+
+  const menu = this.add.container(this.player.x, this.player.y - 50).setDepth(10000);
+
+  const bg = this.add.rectangle(0, 0, 400, 300, 0x000000, 0.9);
+  bg.setStrokeStyle(3, 0xffffff);
+
+  const title = this.add.text(0, -120, "MENU DE UPGRADES", {
+    fontSize: "28px",
+    color: "#ffffff",
+    fontStyle: "bold",
+  }).setOrigin(0.5);
+
+  // Botões de upgrade (por enquanto só placeholders)
+  const upgrade1 = this.add.text(0, -40, `Estrela (R$ ${this.shopUpgrades.estrela.cost})`, { fontSize: "24px", color: "#00ff00" })
+  .setOrigin(0.5)
+  .setInteractive()
+  .on("pointerdown", () => {
+    if (!this.shopUpgrades.estrela.unlocked && this.uiConfig.money >= this.shopUpgrades.estrela.cost) {
+        this.uiConfig.money -= this.shopUpgrades.estrela.cost;
+        this.shopUpgrades.estrela.unlocked = true;  // compra concluída
+        console.log("Upgrade Estrela comprado! Será usado no próximo lançamento.");
+        if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+    }
+  });
+  const upgrade2 = this.add.text(0, 20, "Upgrade 2", { fontSize: "24px", color: "#00ff00" }).setOrigin(0.5);
+  const upgrade3 = this.add.text(0, 80, "Upgrade 3", { fontSize: "24px", color: "#00ff00" }).setOrigin(0.5);
+
+  // Botão de fechar
+  const closeBtn = this.add.text(0, 140, "FECHAR", { fontSize: "24px", color: "#ffffffff", backgroundColor: "#000000" })
+    .setOrigin(0.5)
+    .setInteractive()
+    .on("pointerdown", () => {
+      menu.destroy();
+      this.popupActive = false;
+    });
+
+  menu.add([bg, title, upgrade1, upgrade2, upgrade3, closeBtn]);
+
+  
+}
 
   followHookWithCamera() {
     const cam = this.cameras.main;
@@ -737,51 +802,43 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 
   coletarLixo(zona) {
-  if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
+  if (!zona || zona._processing) return; 
   zona._processing = true;
 
-  // Incrementa coletas da zona
   zona.coletas = (zona.coletas || 0) + 1;
-
-  // Pega os sprites da zona
   const lixoSprites = zona.lixoGroup.getChildren();
-  if (lixoSprites.length > 0) {
-    // Escolhe aleatoriamente um sprite da zona
-    const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
-    const spriteEscolhido = lixoSprites[idx];
 
-    // Cria o lixo visual no anzol
-    const lixo = this.add.image(
-      this.hookConfig.hook.x,
-      this.hookConfig.hook.y,
-      spriteEscolhido.texture.key
-    );
-    lixo.setScale(0.05);
-    lixo.setDepth(10);
+  if (this.shopUpgrades.estrela.active) {
+    // Se a estrela está ativa, pega 1 lixo de todas as zonas que o anzol atravessa
+    if (lixoSprites.length > 0) {
+        const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
+        this.criarLixoNoHook(lixoSprites[idx]);
+        zona.lixoGroup.remove(lixoSprites[idx], true, true);
+    }
 
-    // Remove o sprite da zona para não repetir
-    zona.lixoGroup.remove(spriteEscolhido, true, true);
-
-    // Animação do lixo subindo e sumindo
-    this.tweens.add({
-      targets: lixo,
-      y: this.hookConfig.hook.y - 50,
-      alpha: 0,
-      duration: 800,
-      onComplete: () => lixo.destroy(),
-    });
+    // Desativa a estrela depois do uso
+    this.shopUpgrades.estrela.active = false;
+    this.shopUpgrades.estrela.unlocked = false; // precisa comprar de novo
+    console.log("Estrela usada, compre novamente para usar de novo!");
+  } else {
+    // Sem estrela: pega só 1 lixo normalmente
+    if (lixoSprites.length > 0) {
+        const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
+        this.criarLixoNoHook(lixoSprites[idx]);
+        zona.lixoGroup.remove(lixoSprites[idx], true, true);
+    }
   }
 
   // Adiciona dinheiro baseado na profundidade
   let valorLixo = Phaser.Math.Between(10, 50);
   if (zona.profundidade === 2) valorLixo *= 1.5;
   else if (zona.profundidade === 3) valorLixo *= 2;
+
   this.uiConfig.money += Math.floor(valorLixo);
   if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
 
   const REMOVER_APOS = 3;
   if (zona.coletas >= REMOVER_APOS) {
-    // Anima e remove os sprites restantes
     if (zona.lixoGroup) {
       this.tweens.add({
         targets: zona.lixoGroup.getChildren(),
@@ -791,76 +848,73 @@ spawnSingleZone(x, y, profundidade = 1) {
         onComplete: () => zona.lixoGroup.clear(true, true),
       });
     }
-
-    // Remove o debug graphics
     if (zona.debugGraphics) zona.debugGraphics.destroy();
-
-    // Remove a zona do array
     const idx = this.zonasDeLixo.indexOf(zona);
     if (idx > -1) this.zonasDeLixo.splice(idx, 1);
-
-    // Destrói a zona
     if (zona.destroy) zona.destroy();
 
-    // Atualiza contador de zonas limpas
     this.trashCollected = (this.trashCollected || 0) + 1;
-    console.log(`Zona limpa! Total de zonas limpas: ${this.trashCollected}`);
-
-    // Mostra popup se atingir a meta
     if (!this.popupShown && this.trashCollected >= this.trashGoal) {
       this.popupShown = true;
       this.createPopup();
     }
   } else {
-    // Permite nova coleta após delay
     this.time.delayedCall(250, () => {
       zona._processing = false;
     }, [], this);
   }
 
-  // Inicia retorno do anzol
   this.hookConfig.returning = true;
+}
+
+// Função auxiliar para criar o lixo visual no hook
+criarLixoNoHook(sprite) {
+  const lixo = this.add.image(this.hookConfig.hook.x, this.hookConfig.hook.y, sprite.texture.key)
+    .setScale(0.05).setDepth(10);
+
+  this.tweens.add({
+    targets: lixo,
+    y: this.hookConfig.hook.y - 50,
+    alpha: 0,
+    duration: 800,
+    onComplete: () => lixo.destroy(),
+  });
 }
 
   // MOSCAO SPAWN
   spawnShopkeeper() {
     if (!this.shopConfig.npc) return;
 
-    // Calcula a viewport da câmera
-    const cam = this.cameras.main;
-    const viewportLeft = this.player.x - cam.width / (2 * cam.zoom);
-    const viewportRight = this.player.x + cam.width / (2 * cam.zoom);
+    const npc = this.shopConfig.npc;
 
-    // Decide o lado para spawnar (esquerda ou direita)
-    const spawnLeft = Phaser.Math.RND.pick([true, false]);
-    let spawnX;
+    // Largura real do NPC considerando a escala
+    const npcWidth = npc.width * npc.scaleX;
 
-    if (spawnLeft) {
-      spawnX = this.player.x - this.shopConfig.spawnDistance;
-      this.shopConfig.npc.setFlipX(true);
-    } else {
-      spawnX = this.player.x + this.shopConfig.spawnDistance;
-      this.shopConfig.npc.setFlipX(false);
-    }
+    // Limites visíveis da tela (0 a gameConfig.width)
+    const minX = npcWidth * npc.originX;
+    const maxX = this.gameConfig.width - npcWidth * (1 - npc.originX);
 
-    // Se o spawn estiver fora da tela jogável, inverte o lado
-    if (spawnX < 0) {
-      spawnX = this.player.x + this.shopConfig.spawnDistance;
-      this.shopConfig.npc.setFlipX(false);
-    } else if (spawnX > this.gameConfig.width) {
-      spawnX = this.player.x - this.shopConfig.spawnDistance;
-      this.shopConfig.npc.setFlipX(true);
-    }
+    // Deslocamento para a direita
+    const rightOffset = 100; // aumenta para spawnar mais à direita
 
-    // Define a posição Y igual ao player e usa a mesma origem
-    this.shopConfig.npc.setOrigin(0.5, 0.6); // Mesma origem do player
+    // Limites seguros para spawn
+    let leftLimit = Math.max(minX, this.player.x + rightOffset); // player + offset
+    let rightLimit = Math.min(maxX, this.player.x + this.shopConfig.spawnDistance);
+
+    // Escolhe posição aleatória dentro dessa faixa
+    let spawnX = Phaser.Math.Between(leftLimit, rightLimit);
+
+    // Decide flipX dependendo se está à esquerda ou direita do player
+    npc.setFlipX(spawnX < this.player.x);
+
+    // Altura igual ao player
     const spawnY = this.player.y;
 
-    // Posiciona e mostra o lojista
-    this.shopConfig.npc.setPosition(spawnX, spawnY);
-    this.shopConfig.npc.setVisible(true);
+    npc.setOrigin(0.5, 0.6);
+    npc.setPosition(spawnX, spawnY);
+    npc.setVisible(true);
     this.shopConfig.isVisible = true;
-  }
+}
 
   updateOndas(time, delta) {
     // Movimento das ondas com valores mais altos
@@ -876,4 +930,3 @@ spawnSingleZone(x, y, profundidade = 1) {
     this.onda2.y = this.player.y + Math.cos(waveTime) * 4;
   }
 }
-  
