@@ -5,19 +5,26 @@ const config = {
   type: Phaser.WEBGL,
   width: size.width,
   height: size.height,
-  pixelArt: false, // para evitar blur
+  pixelArt: false,
   zoom: 1, // 720p
+  autoRound: true,
+  render: {
+    roundPixels: true,
+    antialias: true,
+  },
 
   canvas: document.getElementById("gameCanvas"), // Usar getElementById pois é HTML seco
   backgroundColor: "#227ce1",
   physics: {
     default: "arcade",
+    fixedStep: true,
     arcade: {
       gravity: { y: speedDown },
       debug: true,
+      useDeltas: true,
     },
   },
-  scene: [MenuScene, MainScene], // cena registrada aqui
+  scene: [MainScene], // cena registrada aqui
 };
 
 // Inicializa o game
