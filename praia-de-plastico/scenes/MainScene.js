@@ -116,6 +116,14 @@ class MainScene extends Phaser.Scene {
     // ONDAS
     this.load.image("onda1", "assets/sprites/onda1.png");
     this.load.image("onda2", "assets/sprites/onda2.png");
+
+    // OBSTACULOS
+    this.load.image("peixeLeaoMar", "assets/sprites/peixeLeaoMar.png");
+    this.load.image("peixeBaru", "assets/sprites/peixeBaru.png");
+    this.load.image(
+      "tartarugaCabecuda",
+      "assets/sprites/TartarugaCabecuda.png"
+    );
   }
 
   // LOAD ASSETS
@@ -140,6 +148,13 @@ class MainScene extends Phaser.Scene {
 
       { key: "onda1", path: "assets/sprites/onda1.png" },
       { key: "onda2", path: "assets/sprites/onda2.png" },
+
+      { key: "peixeLeaoMar", path: "assets/sprites/peixeLeaoMar.png" },
+      { key: "peixeBaru", path: "assets/sprites/peixeBaru.png" },
+      {
+        key: "tartarugaCabecuda",
+        path: "assets/sprites/TartarugaCabecuda.png",
+      },
     ];
 
     assets.forEach((asset) => this.load.image(asset.key, asset.path));
@@ -154,10 +169,25 @@ class MainScene extends Phaser.Scene {
     this.setupTrashZones();
     this.setupMoneyUI();
     this.setupShopkeeper();
+    this.setupObstaculos();
+
+    // TRASH
     this.trashCollected = 0;
     this.trashGoal = 1; // quantas zonas completas para abrir o popup, 1 pois debug
     this.popupShown = false; // evita abrir popup várias vezes
     this.popupActive = false; // bloqueia entradas enquanto o popup estiver ativo
+
+    this.cameras.main.roundPixels = true;
+
+    // BEZIER
+    this.walkTime = 0; // adiciona aqui
+
+    this.trashCollected = 0;
+    this.trashGoal = 1;
+    this.popupShown = false;
+    this.popupActive = false;
+
+    this.cameras.main.roundPixels = true;
   }
 
   // SETUP METHODS
@@ -200,6 +230,8 @@ class MainScene extends Phaser.Scene {
       .setDepth(3);
 
     const scale = (this.gameConfig.width * 0.25) / this.player.width;
+    this.playerConfig.baseScale = scale;
+
     this.player.setScale(scale).setOrigin(0.5, 0.8);
     this.player.setDepth(2);
 
@@ -218,7 +250,7 @@ class MainScene extends Phaser.Scene {
       700,
       "onda1"
     );
-    this.onda1.setOrigin(0.5, 0.6); // 0.5 / 0.79
+    this.onda1.setOrigin(0.5, 0.79); // 0.5 / 0.79
     this.onda1.setDepth(-1); // atrás dos objetos, mas na frente do céu
 
     this.onda1.tilePositionX = 0;
@@ -231,25 +263,11 @@ class MainScene extends Phaser.Scene {
       700,
       "onda2"
     );
-    this.onda2.setOrigin(0.5, 0.6); // 0.5 / 0.74
-    this.onda2.setDepth(2); // sempre na frente
+    this.onda2.setOrigin(0.5, 0.728); // 0.5 / 0.74
+    this.onda2.setDepth(5); // sempre na frente
 
     this.onda2.tilePositionX = 0;
     this.onda2.tilePositionY = 0;
-  }
-
-  setupRatoSemArpao() {
-    const ratoStartPosition = {
-      x: this.ratoIdle.x,
-      y: this.ratoIdle.y,
-    };
-    this.ratoSemArpao = this.add
-      .image(ratoStartPosition.x, ratoStartPosition.y, "ratoMira")
-      .setScale(0.05)
-      .setOrigin(0.5, 0.5)
-      .setVisible(true)
-      .setDepth(3);
-    return this.ratoSemArpao;
   }
 
   setupInputs() {
@@ -275,17 +293,21 @@ class MainScene extends Phaser.Scene {
     fontStyle: "bold",
   });
 
-  this.textoDinheiro.setOrigin(1, 0); // origem no canto superior direito
+    this.textoDinheiro.setOrigin(1, 0); // origem no canto superior direito
 
-  // fixa na tela
-  this.textoDinheiro.setScrollFactor(0);
+    // fixa na tela
+    this.textoDinheiro.setScrollFactor(0);
 
-  // garante que tá na frente
-  this.textoDinheiro.setDepth(9999);
+    // garante que tá na frente
+    this.textoDinheiro.setDepth(9999);
 
-  console.log("UI criada:", this.textoDinheiro);
-  console.log(this.textoDinheiro.x, this.textoDinheiro.y, this.textoDinheiro.depth);
-}
+    console.log("UI criada:", this.textoDinheiro);
+    console.log(
+      this.textoDinheiro.x,
+      this.textoDinheiro.y,
+      this.textoDinheiro.depth
+    );
+  }
 
   // HOOK METHODS
 
@@ -295,18 +317,19 @@ class MainScene extends Phaser.Scene {
     this.shopUpgrades.estrela.unlocked = false; // ⚡ reseta, tem que comprar de novo
   }
     const hookStartPosition = {
-      x: this.player.x + 10,
-      y: this.player.y - 10,
+      x: this.player.x + 5,
+      y: this.player.y + 15,
     };
 
-    this.hookConfig.hook = this.add
+    this.hookConfig.hook = this.physics.add
       .image(hookStartPosition.x, hookStartPosition.y, "ratoMiraArpao")
-      .setDepth(3);
+      .setDepth(6);
 
     // Configuração inicial do anzol
-    const hookScale = 0.05;
+    const hookScale = 0.07;
     this.hookConfig.hook.setScale(hookScale);
-    this.hookConfig.hook.setOrigin(0.5, 0.01);
+    this.hookConfig.hook.setOrigin(0.5, 0.5);
+    this.hookConfig.hook.body.setAllowGravity(false);
 
     // Armazena posição inicial para o retorno
     this.hookConfig.startX = hookStartPosition.x;
@@ -315,6 +338,28 @@ class MainScene extends Phaser.Scene {
     // Reseta estados do anzol
     this.hookConfig.gravity = false;
     this.hookConfig.returning = false;
+
+    this.hookCollider = this.physics.add.overlap(
+      this.hookConfig.hook,
+      this.obstaculos,
+      (hook, obstaculo) => {
+        this.handleObstacleCollision(obstaculo, hook);
+      }
+    );
+  }
+
+  setupRatoSemArpao() {
+    const ratoStartPosition = {
+      x: this.hookConfig.hook.x,
+      y: this.hookConfig.hook.y,
+    };
+    this.ratoSemArpao = this.add
+      .image(ratoStartPosition.x, ratoStartPosition.y, "ratoMira")
+      .setScale(0.07)
+      .setOrigin(0.5, 0.5)
+      .setVisible(true)
+      .setDepth(3);
+    return this.ratoSemArpao;
   }
 
   setupHookControls() {
@@ -346,92 +391,101 @@ class MainScene extends Phaser.Scene {
 
   // TRASH METHODS
 
-setupTrashZones() {
-  // Aumenta a quantidade de zonas
-  const totalZonas = 12; // por exemplo, 12 zonas
-  for (let i = 0; i < totalZonas; i++) {
-    let attempts = 0;
-    const minDistanceBetweenZones = 220;
-    let x, y, profundidade;
+  setupTrashZones() {
+    // Aumenta a quantidade de zonas
+    const totalZonas = 12; // por exemplo, 12 zonas
+    for (let i = 0; i < totalZonas; i++) {
+      let attempts = 0;
+      const minDistanceBetweenZones = 220;
+      let x, y, profundidade;
 
-    do {
-      // Posição X aleatória em torno do player
-      const offsetX = Phaser.Math.Between(-500, 500);
-      x = Phaser.Math.Clamp(this.player.x + offsetX, 60, 1366 - 60);
+      do {
+        // Posição X aleatória em torno do player
+        const offsetX = Phaser.Math.Between(-500, 500);
+        x = Phaser.Math.Clamp(this.player.x + offsetX, 60, 1366 - 60);
 
-      // Escolhe profundidade aleatória
-      profundidade = Phaser.Math.RND.pick([1, 2, 3]); // 1 rasa, 2 média, 3 profunda
+        // Escolhe profundidade aleatória
+        profundidade = Phaser.Math.RND.pick([1, 2, 3]); // 1 rasa, 2 média, 3 profunda
 
-      // Y baseado na profundidade
-      const minY = this.player.y + 150 + (profundidade - 1) * 120;
-      const maxY = this.player.y + 300 + (profundidade - 1) * 120;
-      y = Phaser.Math.Between(minY, maxY);
-      y = Phaser.Math.Clamp(y, 200, this.gameConfig.height - 100);
+        // Y baseado na profundidade
+        const minY = this.player.y + 150 + (profundidade - 1) * 120;
+        const maxY = this.player.y + 300 + (profundidade - 1) * 120;
+        y = Phaser.Math.Between(minY, maxY);
+        y = Phaser.Math.Clamp(y, 200, this.gameConfig.height - 100);
 
-      attempts++;
-    } while (
-      this.zonasDeLixo.some(
-        (z) => Phaser.Math.Distance.Between(z.x, z.y, x, y) < minDistanceBetweenZones
-      ) && attempts < 40
-    );
+        attempts++;
+      } while (
+        this.zonasDeLixo.some(
+          (z) =>
+            Phaser.Math.Distance.Between(z.x, z.y, x, y) <
+            minDistanceBetweenZones
+        ) &&
+        attempts < 40
+      );
 
-    this.spawnSingleZone(x, y, profundidade);
-  }
-}
-
-spawnSingleZone(x, y, profundidade = 1) {
-  const zonaGroup = this.add.group();
-  const positions = [];
-  const needed = Phaser.Math.Between(3, 3);
-
-  for (let j = 0; j < needed; j++) {
-    let px, py, posAttempts = 0;
-    do {
-      px = Phaser.Math.Between(-50, 50);
-      py = Phaser.Math.Between(-30, 30);
-      posAttempts++;
-    } while (
-      positions.some((p) => Phaser.Math.Distance.Between(p.x, p.y, px, py) < 40) &&
-      posAttempts < 30
-    );
-    positions.push({ x: px, y: py });
-  }
-
-  for (let k = 0; k < positions.length; k++) {
-    const tipo = Phaser.Math.RND.pick(this.trashConfig.types);
-    const s = this.add.image(x + positions[k].x, y + positions[k].y, tipo);
-    s.setScale(0.04);
-    s.setAlpha(0.95);
-    s.setDepth(10);
-    zonaGroup.add(s);
-  }
-
-  const zonaLixo = this.add.zone(x, y, 160, 120);
-  zonaLixo.x = x;
-  zonaLixo.y = y;
-  zonaLixo.profundidade = profundidade; // salva a profundidade
-  zonaLixo.lixoGroup = zonaGroup;
-  zonaLixo.coletas = 0;
-
-  if (this.physics && this.physics.world && this.physics.world.enable) {
-    this.physics.world.enable(zonaLixo);
-    if (zonaLixo.body) {
-      zonaLixo.body.setAllowGravity(false);
-      zonaLixo.body.setImmovable(true);
+      this.spawnSingleZone(x, y, profundidade);
     }
   }
 
-  // Debug gráfico opcional
-  const g = this.add.graphics();
-  g.lineStyle(2, profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000);
-  g.strokeRect(x - 80, y - 60, 160, 120);
-  g.setDepth(9999);
-  zonaLixo.debugGraphics = g;
+  spawnSingleZone(x, y, profundidade = 1) {
+    const zonaGroup = this.add.group();
+    const positions = [];
+    const needed = Phaser.Math.Between(3, 3);
 
-  this.zonasDeLixo.push(zonaLixo);
-  return zonaLixo;
-}
+    for (let j = 0; j < needed; j++) {
+      let px,
+        py,
+        posAttempts = 0;
+      do {
+        px = Phaser.Math.Between(-50, 50);
+        py = Phaser.Math.Between(-30, 30);
+        posAttempts++;
+      } while (
+        positions.some(
+          (p) => Phaser.Math.Distance.Between(p.x, p.y, px, py) < 40
+        ) &&
+        posAttempts < 30
+      );
+      positions.push({ x: px, y: py });
+    }
 
+    for (let k = 0; k < positions.length; k++) {
+      const tipo = Phaser.Math.RND.pick(this.trashConfig.types);
+      const s = this.add.image(x + positions[k].x, y + positions[k].y, tipo);
+      s.setScale(0.04);
+      s.setAlpha(0.95);
+      s.setDepth(10);
+      zonaGroup.add(s);
+    }
+
+    const zonaLixo = this.add.zone(x, y, 160, 120);
+    zonaLixo.x = x;
+    zonaLixo.y = y;
+    zonaLixo.profundidade = profundidade; // salva a profundidade
+    zonaLixo.lixoGroup = zonaGroup;
+    zonaLixo.coletas = 0;
+
+    if (this.physics && this.physics.world && this.physics.world.enable) {
+      this.physics.world.enable(zonaLixo);
+      if (zonaLixo.body) {
+        zonaLixo.body.setAllowGravity(false);
+        zonaLixo.body.setImmovable(true);
+      }
+    }
+
+    // Debug gráfico opcional
+    const g = this.add.graphics();
+    g.lineStyle(
+      2,
+      profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000
+    );
+    g.strokeRect(x - 80, y - 60, 160, 120);
+    g.setDepth(9999);
+    zonaLixo.debugGraphics = g;
+
+    this.zonasDeLixo.push(zonaLixo);
+    return zonaLixo;
+  }
 
   // (This duplicate block has been removed to fix syntax errors)
 
@@ -510,6 +564,63 @@ spawnSingleZone(x, y, profundidade = 1) {
     .setVisible(false);
   }
 
+  setupObstaculos() {
+    this.obstaculos = this.add.group();
+
+    this.time.addEvent({
+      delay: 1000,
+      callback: () => this.spawnObstaculo(),
+      loop: true,
+    });
+  }
+
+  spawnObstaculo() {
+    const tipos = ["peixeLeaoMar", "peixeBaru", "tartarugaCabecuda"];
+    const tipo = Phaser.Math.RND.pick(tipos);
+    let x, y, sprite, velocidade;
+
+    if (tipo === "peixeLeaoMar") {
+      // segunda metade do mapa (parte mais funda)
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = Phaser.Math.Between(
+        this.gameConfig.height / 2 + 100,
+        this.gameConfig.height / 2
+      );
+      sprite = this.physics.add.image(x, y, "peixeLeaoMar").setScale(0.12);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(150, 200); // rápido
+    } else if (tipo === "peixeBaru") {
+      // spawna "entre os leões" => mesma região, mas mais central
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = Phaser.Math.Between(
+        this.gameConfig.height / 2 + 100,
+        this.gameConfig.height - 300
+      );
+      sprite = this.physics.add.image(x, y, "peixeBaru").setScale(0.12);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(60, 90); // lento
+    } else if (tipo === "tartarugaCabecuda") {
+      // só no chão
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = this.gameConfig.height - 40;
+      sprite = this.physics.add.image(x, y, "tartarugaCabecuda").setScale(0.15);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(20, 40); // bem devagar
+    }
+
+    // Configuração genérica
+    sprite.setDepth(10);
+    sprite.velocidade = velocidade;
+    sprite.tipo = tipo;
+    sprite.direcao = Phaser.Math.RND.pick([-1, 1]); // esquerda ou direita
+    sprite.body.setAllowGravity(false);
+    sprite.body.setImmovable(true);
+    this.obstaculos.add(sprite);
+  }
+
   // UPDATE METHODS
 
   update(time, delta) {
@@ -518,6 +629,7 @@ spawnSingleZone(x, y, profundidade = 1) {
     this.updateTrashZones(delta);
     this.updateShopkeeper();
     this.updateOndas(time, delta);
+    this.updateObstaculos(delta);
   }
 
   updatePlayer(delta) {
@@ -568,6 +680,40 @@ spawnSingleZone(x, y, profundidade = 1) {
     // Aplica o movimento
     this.player.x += this.playerConfig.velocityX * deltaTime;
 
+    // Arredonda
+    this.player.x = Math.round(this.player.x);
+
+    // Bezier foda
+    if (Math.abs(this.playerConfig.velocityX) > 0) {
+      this.walkTime += deltaTime * 10; // controla a velocidade da onda
+      const stretchY = 1 + Math.sin(this.walkTime) * 0.05;
+      const stretchX = 1 - Math.sin(this.walkTime) * 0.03;
+      this.player.setScale(
+        this.playerConfig.baseScale * stretchX,
+        this.playerConfig.baseScale * stretchY
+      );
+    } else {
+      this.walkTime = 0;
+      this.player.setScale(this.playerConfig.baseScale); // volta ao normal
+    }
+
+    // Inclinação do ratoIdle para dar sensação de velocidade
+    if (Math.abs(this.playerConfig.velocityX) > 0) {
+      // mais velocidade = mais inclinação
+      const maxTilt = 15; // graus de inclinação máxima
+      const tilt = Phaser.Math.Clamp(
+        (this.playerConfig.velocityX / this.playerConfig.speed) * maxTilt,
+        -maxTilt,
+        maxTilt
+      );
+
+      // aplica ângulo inverso ao flip (esquerda/direita)
+      this.ratoIdle.angle = -tilt;
+    } else {
+      // volta ao normal quando parado
+      this.ratoIdle.angle = 0;
+    }
+
     // Limita o movimento para não sair da tela
     const playerWidth = this.player.displayWidth;
     this.player.x = Phaser.Math.Clamp(
@@ -578,33 +724,36 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 
   updateHook(delta) {
-  if (!this.hookConfig.hook) return;
+    if (!this.hookConfig.hook) return;
 
-  const deltaSeconds = delta / 1000;
+    const deltaSeconds = delta / 1000;
 
-  if (this.hookConfig.isSwinging) {
-    // Movimento pendular
-    this.hookConfig.hook.angle +=
-      this.hookConfig.swingSpeed *
-      this.hookConfig.swingDirection *
-      deltaSeconds;
+    if (this.hookConfig.isSwinging) {
+      // Movimento pendular
+      this.hookConfig.hook.angle +=
+        this.hookConfig.swingSpeed *
+        this.hookConfig.swingDirection *
+        deltaSeconds;
 
-    if (this.hookConfig.hook.angle >= 45) {
-      this.hookConfig.hook.angle = 45;
-      this.hookConfig.swingDirection = -1;
-    } else if (this.hookConfig.hook.angle <= -45) {
-      this.hookConfig.hook.angle = -45;
-      this.hookConfig.swingDirection = 1;
-    }
-  } else if (this.hookConfig.gravity) {
-    const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
-    const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
-    const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
+      // Inverte a direção nos limites
+      if (this.hookConfig.hook.angle >= 45) {
+        this.hookConfig.hook.angle = 45;
+        this.hookConfig.swingDirection = -1;
+      } else if (this.hookConfig.hook.angle <= -45) {
+        this.hookConfig.hook.angle = -45;
+        this.hookConfig.swingDirection = 1;
+      }
+    } else if (this.hookConfig.gravity) {
+      const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+      const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
+      const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
 
-    if (!this.rato) {
-      this.rato = this.setupRatoSemArpao();
-      this.rato.angle = this.hookConfig.hook.angle;
-      this.rato.setOrigin(0.5, 0.5);
+      if (!this.rato) {
+        this.rato = this.setupRatoSemArpao();
+        this.rato.angle = this.hookConfig.hook.angle;
+        this.rato.setOrigin(0.5, 0.5).setDepth(6);
+      }
+
     }
 
     this.hookConfig.hook.setTexture("arpao");
@@ -658,6 +807,31 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 }
 
+
+  resetHook() {
+    if (this.hookConfig.hook) {
+      this.hookConfig.hook.destroy();
+    }
+    if (this.rato) {
+      this.rato.destroy();
+      this.rato = null;
+    }
+
+    this.hookConfig.hook = null;
+    this.hookConfig.isSwinging = false;
+    this.hookConfig.gravity = false;
+    this.hookConfig.returning = false;
+
+    this.playerConfig.canMove = true;
+    this.ratoIdle.setVisible(true);
+
+    this.resetCamera(); // volta a câmera pro player
+
+    if (this.hookCollider) {
+      this.hookCollider.destroy();
+      this.hookCollider = null;
+    }
+  }
 
   updateTrashZones(delta) {
     this.trashConfig.respawnTimer += delta;
@@ -802,70 +976,97 @@ openShopMenu() {
   }
 
   coletarLixo(zona) {
-  if (!zona || zona._processing) return; 
-  zona._processing = true;
 
-  zona.coletas = (zona.coletas || 0) + 1;
-  const lixoSprites = zona.lixoGroup.getChildren();
+    if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
+    zona._processing = true;
 
-  if (this.shopUpgrades.estrela.active) {
-    // Se a estrela está ativa, pega 1 lixo de todas as zonas que o anzol atravessa
+    // Incrementa coletas da zona
+    zona.coletas = (zona.coletas || 0) + 1;
+
+    // Pega os sprites da zona
+    const lixoSprites = zona.lixoGroup.getChildren();
     if (lixoSprites.length > 0) {
-        const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
-        this.criarLixoNoHook(lixoSprites[idx]);
-        zona.lixoGroup.remove(lixoSprites[idx], true, true);
-    }
+      // Escolhe aleatoriamente um sprite da zona
+      const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
+      const spriteEscolhido = lixoSprites[idx];
 
-    // Desativa a estrela depois do uso
-    this.shopUpgrades.estrela.active = false;
-    this.shopUpgrades.estrela.unlocked = false; // precisa comprar de novo
-    console.log("Estrela usada, compre novamente para usar de novo!");
-  } else {
-    // Sem estrela: pega só 1 lixo normalmente
-    if (lixoSprites.length > 0) {
-        const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
-        this.criarLixoNoHook(lixoSprites[idx]);
-        zona.lixoGroup.remove(lixoSprites[idx], true, true);
-    }
-  }
+      // Cria o lixo visual no anzol
+      const lixo = this.add.image(
+        this.hookConfig.hook.x,
+        this.hookConfig.hook.y,
+        spriteEscolhido.texture.key
+      );
+      lixo.setScale(0.05);
+      lixo.setDepth(10);
 
-  // Adiciona dinheiro baseado na profundidade
-  let valorLixo = Phaser.Math.Between(10, 50);
-  if (zona.profundidade === 2) valorLixo *= 1.5;
-  else if (zona.profundidade === 3) valorLixo *= 2;
+      // Remove o sprite da zona para não repetir
+      zona.lixoGroup.remove(spriteEscolhido, true, true);
 
-  this.uiConfig.money += Math.floor(valorLixo);
-  if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
-
-  const REMOVER_APOS = 3;
-  if (zona.coletas >= REMOVER_APOS) {
-    if (zona.lixoGroup) {
+      // Animação do lixo subindo e sumindo
       this.tweens.add({
-        targets: zona.lixoGroup.getChildren(),
+        targets: lixo,
+        y: this.hookConfig.hook.y - 50,
         alpha: 0,
-        scale: 0,
         duration: 800,
-        onComplete: () => zona.lixoGroup.clear(true, true),
+        onComplete: () => lixo.destroy(),
       });
     }
-    if (zona.debugGraphics) zona.debugGraphics.destroy();
-    const idx = this.zonasDeLixo.indexOf(zona);
-    if (idx > -1) this.zonasDeLixo.splice(idx, 1);
-    if (zona.destroy) zona.destroy();
 
-    this.trashCollected = (this.trashCollected || 0) + 1;
-    if (!this.popupShown && this.trashCollected >= this.trashGoal) {
-      this.popupShown = true;
-      this.createPopup();
+    // Adiciona dinheiro baseado na profundidade
+    let valorLixo = Phaser.Math.Between(10, 50);
+    if (zona.profundidade === 2) valorLixo *= 1.5;
+    else if (zona.profundidade === 3) valorLixo *= 2;
+    this.uiConfig.money += Math.floor(valorLixo);
+    if (this.textoDinheiro)
+      this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+
+    const REMOVER_APOS = 3;
+    if (zona.coletas >= REMOVER_APOS) {
+      // Anima e remove os sprites restantes
+      if (zona.lixoGroup) {
+        this.tweens.add({
+          targets: zona.lixoGroup.getChildren(),
+          alpha: 0,
+          scale: 0,
+          duration: 800,
+          onComplete: () => zona.lixoGroup.clear(true, true),
+        });
+      }
+
+      // Remove o debug graphics
+      if (zona.debugGraphics) zona.debugGraphics.destroy();
+
+      // Remove a zona do array
+      const idx = this.zonasDeLixo.indexOf(zona);
+      if (idx > -1) this.zonasDeLixo.splice(idx, 1);
+
+      // Destrói a zona
+      if (zona.destroy) zona.destroy();
+
+      // Atualiza contador de zonas limpas
+      this.trashCollected = (this.trashCollected || 0) + 1;
+      console.log(`Zona limpa! Total de zonas limpas: ${this.trashCollected}`);
+
+      // Mostra popup se atingir a meta
+      if (!this.popupShown && this.trashCollected >= this.trashGoal) {
+        this.popupShown = true;
+        this.createPopup();
+      }
+    } else {
+      // Permite nova coleta após delay
+      this.time.delayedCall(
+        250,
+        () => {
+          zona._processing = false;
+        },
+        [],
+        this
+      );
     }
-  } else {
-    this.time.delayedCall(250, () => {
-      zona._processing = false;
-    }, [], this);
-  }
 
-  this.hookConfig.returning = true;
-}
+    // Inicia retorno do anzol
+    this.hookConfig.returning = true;
+  }
 
 // Função auxiliar para criar o lixo visual no hook
 criarLixoNoHook(sprite) {
@@ -918,8 +1119,8 @@ criarLixoNoHook(sprite) {
 
   updateOndas(time, delta) {
     // Movimento das ondas com valores mais altos
-    this.onda1.tilePositionX += 1; // Direita
-    this.onda2.tilePositionX -= 2; // Esquerda
+    this.onda1.tilePositionX += 0.5; // Direita
+    this.onda2.tilePositionX -= 1; // Esquerda
 
     // Efeito sinusoidal de sobe/desce CORRIGIDO
     // Use time * 0.001 para um movimento mais suave
@@ -928,5 +1129,68 @@ criarLixoNoHook(sprite) {
     // Posição Y base + movimento sinusoidal
     this.onda1.y = this.player.y + Math.sin(waveTime) * 9; // Movimento suave
     this.onda2.y = this.player.y + Math.cos(waveTime) * 4;
+  }
+
+  updateObstaculos(delta) {
+    const dt = delta / 1000;
+
+    this.obstaculos.getChildren().forEach((obstaculo) => {
+      obstaculo.x += obstaculo.velocidade * obstaculo.direcao * dt;
+
+      // flip do sprite
+      obstaculo.setFlipX(obstaculo.direcao > 0);
+
+      // animação de "nado"
+      obstaculo.swimTime += dt * 6; // controla a velocidade da animação
+      const stretchY = 1 + Math.sin(obstaculo.swimTime) * 0.1;
+      const stretchX = 1 - Math.sin(obstaculo.swimTime) * 0.05;
+      obstaculo.setScale(
+        obstaculo.baseScale * stretchX,
+        obstaculo.baseScale * stretchY
+      );
+
+      // remove se sair da tela
+      if (obstaculo.x < -50 || obstaculo.x > this.gameConfig.width + 50) {
+        obstaculo.destroy();
+      }
+    });
+  }
+
+  handleObstacleCollision(obstaculo, hook) {
+    if (!this.hookConfig.hook) return;
+
+    switch (obstaculo.tipo) {
+      case "peixeLeaoMar":
+        console.log("Arpão destruído pelo peixe-leão!");
+        this.resetHook();
+        break;
+
+      case "peixeBaru":
+        // destrói o peixe
+        obstaculo.destroy();
+
+        // perde 100 de dinheiro/lixo
+        this.uiConfig.money = Math.max(0, this.uiConfig.money - 100);
+        if (this.textoDinheiro)
+          this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+
+        console.log("Peixe-baru atingido! -100 dinheiro");
+        break;
+
+      case "tartarugaCabecuda":
+        if (!this.hookConfig.returning && !this.hookConfig.hook._trapped) {
+          console.log("Arpão preso na tartaruga!");
+          this.hookConfig.gravity = false;
+          this.hookConfig.hook._trapped = true; // flag para não repetir
+
+          // espera 5 segundos e reseta o hook
+          this.time.delayedCall(5000, () => {
+            if (this.hookConfig.hook) {
+              this.resetHook();
+            }
+          });
+        }
+        break;
+    }
   }
 }
