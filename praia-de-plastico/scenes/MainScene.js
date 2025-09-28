@@ -1,0 +1,1112 @@
+class MainScene extends Phaser.Scene {
+  constructor() {
+    super("MainScene");
+    this.initGameConfig();
+  }
+
+  // CONFIGURAÇÕES INICIAIS
+  initGameConfig() {
+    // Game
+    this.gameConfig = {
+      width: 1366,
+      height: 1300, // 768
+    };
+
+    // Player
+    this.playerConfig = {
+      speed: 300,
+      acceleration: 600,
+      deceleration: 800,
+      velocityX: 0,
+      canMove: true,
+    };
+
+    // Hook
+    this.hookConfig = {
+      hook: null,
+      startX: 0,
+      startY: 0,
+      velocityX: 0,
+      velocityY: 0,
+      throwSpeed: 400,
+      speed: 300,
+      gravity: false,
+      returning: false,
+      swingSpeed: 120,
+      swingDirection: 1,
+      isSwinging: false,
+    };
+
+    // Camera
+    this.cameraConfig = {
+      defaultZoom: 1.5,
+      hookZoom: 1.0,
+      tweenDuration: 1000,
+      verticalScrollThreshold: 300, // Distância do player para começar a mover a câmera
+    };
+
+    // Trash
+    this.trashConfig = {
+      zones: [],
+      types: ["garrafa", "osso", "plástico", "saco"],
+      targetZones: 6,
+      respawnDelay: 5000,
+      respawnTimer: 0,
+      minDistance: 220,
+    };
+
+    this.zonasDeLixo = [];
+
+    // UI
+    this.uiConfig = {
+      money: 0,
+      moneyText: null,
+      moneyContainer: null,
+    };
+
+    // MOSCAO
+    this.shopConfig = {
+      npc: null,
+      isVisible: false,
+      spawnDelay: 1000, // 4 segundo de delay para spawnar
+      lastHookTime: 0, // Armazena quando o anzol foi usado pela última vez
+      scale: 0.15,
+      spawnDistance: 600, // Aumentado para garantir que fique fora da bound da câmera
+    };
+  }
+
+  // PRELOAD
+  preload() {
+    this.load.image("ceubg", "assets/sprites/ceubg.png");
+    this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
+    this.load.image(
+      "moscaoplaceholder",
+      "assets/sprites/moscaoplaceholder.png"
+    );
+    this.load.image("garrafa", "assets/sprites/Garrafa.png");
+    this.load.image("osso", "assets/sprites/Osso.png");
+    this.load.image("plástico", "assets/sprites/plástico.png");
+    this.load.image("saco", "assets/sprites/Saco.png");
+
+    // RATO
+    this.load.image("ratoMira", "assets/sprites/ratoMira.png");
+    this.load.image("ratoMiraArpao", "assets/sprites/ratoMiraArpao.png");
+    this.load.image("arpao", "assets/sprites/arpao.png");
+    this.load.image("barcoSemFundo", "assets/sprites/barcoSemFundo.png");
+    this.load.image("ratoIdle", "assets/sprites/ratoIdle.png");
+
+    // ONDAS
+    this.load.image("onda1", "assets/sprites/onda1.png");
+    this.load.image("onda2", "assets/sprites/onda2.png");
+
+    // OBSTACULOS
+    this.load.image("peixeLeaoMar", "assets/sprites/peixeLeaoMar.png");
+    this.load.image("peixeBaru", "assets/sprites/peixeBaru.png");
+    this.load.image(
+      "tartarugaCabecuda",
+      "assets/sprites/TartarugaCabecuda.png"
+    );
+  }
+
+  // LOAD ASSETS
+  loadAssets() {
+    const assets = [
+      { key: "ceubg", path: "assets/sprites/ceubg.png" },
+      { key: "barcoratosprite", path: "assets/sprites/barcoratosprite.png" },
+      {
+        key: "moscaoplaceholder",
+        path: "assets/sprites/moscaoplaceholder.png",
+      },
+      { key: "garrafa", path: "assets/sprites/Garrafa.png" },
+      { key: "osso", path: "assets/sprites/Osso.png" },
+      { key: "plástico", path: "assets/sprites/plástico.png" },
+      { key: "saco", path: "assets/sprites/Saco.png" },
+
+      { key: "ratoMira", path: "assets/sprites/ratoMira.png" },
+      { key: "ratoMiraArpao", path: "assets/sprites/ratoMiraArpao.png" },
+      { key: "arpao", path: "assets/sprites/arpao.png" },
+      { key: "barcoSemFundo", path: "assets/sprites/barcoSemFundo.png" },
+      { key: "ratoIdle", path: "assets/sprites/ratoIdle.png" },
+
+      { key: "onda1", path: "assets/sprites/onda1.png" },
+      { key: "onda2", path: "assets/sprites/onda2.png" },
+
+      { key: "peixeLeaoMar", path: "assets/sprites/peixeLeaoMar.png" },
+      { key: "peixeBaru", path: "assets/sprites/peixeBaru.png" },
+      {
+        key: "tartarugaCabecuda",
+        path: "assets/sprites/TartarugaCabecuda.png",
+      },
+    ];
+
+    assets.forEach((asset) => this.load.image(asset.key, asset.path));
+  }
+
+  create() {
+    this.setupBackground();
+    this.setupPlayer();
+    this.setupOndas();
+    this.setupInputs();
+    this.setupCamera();
+    this.setupTrashZones();
+    this.setupMoneyUI();
+    this.setupShopkeeper();
+    this.setupObstaculos();
+    this.spawnShopkeeper();
+
+    // TRASH
+    this.trashCollected = 0;
+    this.trashGoal = 5; // quantas zonas completas para abrir o popup, 1 pois debug
+    this.popupShown = false; // evita abrir popup várias vezes
+    this.popupActive = false; // bloqueia entradas enquanto o popup estiver ativo
+
+    this.cameras.main.roundPixels = true;
+
+    // BEZIER
+    this.walkTime = 0; // adiciona aqui
+
+    this.trashCollected = 0;
+    this.trashGoal = 5;
+    this.popupShown = false;
+    this.popupActive = false;
+
+    this.cameras.main.roundPixels = true;
+  }
+
+  // SETUP METHODS
+
+  setupBackground() {
+    // Create a tiling sprite that stops at the original background height
+    this.bg = this.add.tileSprite(
+      this.gameConfig.width / 2,
+      384, // Center of the original background area
+      this.gameConfig.width,
+      768 / 3 + 150, // Original background height
+      "ceubg"
+    );
+    this.bg.setScrollFactor(1); // Slow parallax scroll
+    this.bg.setDepth(-4);
+    this.bg.setOrigin(0.5, 0.5);
+
+    // Fill the rest with a solid color
+    this.waterBackground = this.add.rectangle(
+      this.gameConfig.width / 2,
+      (768 + this.gameConfig.height) / 2, // Center of the water area
+      this.gameConfig.width,
+      this.gameConfig.height - 768, // Remaining vertical space
+      0x1e90ff // Deep blue for water
+    );
+    this.waterBackground.setScrollFactor(0.1); // Very slow scroll for water
+    this.waterBackground.setDepth(-1);
+  }
+
+  setupPlayer() {
+    this.player = this.add.image(
+      this.gameConfig.width / 2,
+      569,
+      "barcoSemFundo"
+    );
+
+    this.ratoIdle = this.add
+      .image(this.player.x + 25, this.player.y + 10, "ratoIdle")
+      .setScale(0.09)
+      .setDepth(3);
+
+    const scale = (this.gameConfig.width * 0.25) / this.player.width;
+    this.playerConfig.baseScale = scale;
+
+    this.player.setScale(scale).setOrigin(0.5, 0.8);
+    this.player.setDepth(2);
+
+    //   this.ratoSemArpao = this.add
+    //     .image(this.barco.x, this.barco.y, "ratoMira")
+    //     .setScale(0.04)
+    //     .setOrigin(0.5, 0.5)
+    //     .setVisible(false);
+  }
+
+  setupOndas() {
+    this.onda1 = this.add.tileSprite(
+      this.gameConfig.width / 2,
+      this.player.y,
+      this.gameConfig.width,
+      700,
+      "onda1"
+    );
+    this.onda1.setOrigin(0.5, 0.79); // 0.5 / 0.79
+    this.onda1.setDepth(-1); // atrás dos objetos, mas na frente do céu
+
+    this.onda1.tilePositionX = 0;
+    this.onda1.tilePositionY = 0;
+
+    this.onda2 = this.add.tileSprite(
+      this.gameConfig.width / 2,
+      this.player.y,
+      this.gameConfig.width,
+      700,
+      "onda2"
+    );
+    this.onda2.setOrigin(0.5, 0.728); // 0.5 / 0.74
+    this.onda2.setDepth(5); // sempre na frente
+
+    this.onda2.tilePositionX = 0;
+    this.onda2.tilePositionY = 0;
+  }
+
+  setupInputs() {
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    this.setupHookControls();
+  }
+
+  setupCamera() {
+    const cam = this.cameras.main;
+    cam.startFollow(this.player, true);
+    cam.setFollowOffset(0, 0);
+    cam.setDeadzone(100, 50);
+    cam.setBounds(0, 0, this.gameConfig.width, this.gameConfig.height);
+    cam.setZoom(this.cameraConfig.defaultZoom);
+  }
+
+  setupMoneyUI() {
+    this.textoDinheiro = this.add.text(
+      this.player.x - 152,
+      this.player.y - 385,
+      "Lixo coletado: 0",
+      {
+        fontSize: "32px",
+        fontFamily: "upheaval",
+        fill: "#000000ff",
+        fontStyle: "bold",
+      }
+    );
+
+    this.textoDinheiro.setOrigin(1, 0); // origem no canto superior direito
+
+    // fixa na tela
+    this.textoDinheiro.setScrollFactor(0);
+
+    // garante que tá na frente
+    this.textoDinheiro.setDepth(9999);
+
+    console.log("UI criada:", this.textoDinheiro);
+    console.log(
+      this.textoDinheiro.x,
+      this.textoDinheiro.y,
+      this.textoDinheiro.depth
+    );
+  }
+
+  // HOOK METHODS
+
+  throwHook() {
+    // Cria o anzol
+    const hookStartPosition = {
+      x: this.player.x + 5,
+      y: this.player.y + 15,
+    };
+
+    this.hookConfig.hook = this.physics.add
+      .image(hookStartPosition.x, hookStartPosition.y, "ratoMiraArpao")
+      .setDepth(6);
+
+    // Configuração inicial do anzol
+    const hookScale = 0.07;
+    this.hookConfig.hook.setScale(hookScale);
+    this.hookConfig.hook.setOrigin(0.5, 0.5);
+    this.hookConfig.hook.body.setAllowGravity(false);
+
+    // Armazena posição inicial para o retorno
+    this.hookConfig.startX = hookStartPosition.x;
+    this.hookConfig.startY = hookStartPosition.y;
+
+    // Reseta estados do anzol
+    this.hookConfig.gravity = false;
+    this.hookConfig.returning = false;
+
+    this.hookCollider = this.physics.add.overlap(
+      this.hookConfig.hook,
+      this.obstaculos,
+      (hook, obstaculo) => {
+        this.handleObstacleCollision(obstaculo, hook);
+      }
+    );
+  }
+
+  setupRatoSemArpao() {
+    const ratoStartPosition = {
+      x: this.hookConfig.hook.x,
+      y: this.hookConfig.hook.y,
+    };
+    this.ratoSemArpao = this.add
+      .image(ratoStartPosition.x, ratoStartPosition.y, "ratoMira")
+      .setScale(0.07)
+      .setOrigin(0.5, 0.5)
+      .setVisible(true)
+      .setDepth(3);
+    return this.ratoSemArpao;
+  }
+
+  setupHookControls() {
+    this.input.keyboard.on("keydown-SPACE", () => {
+      if (!this.hookConfig.hook) {
+        this.ratoIdle.setVisible(false);
+        this.throwHook();
+        this.hookConfig.isSwinging = true;
+        this.playerConfig.canMove = false;
+        this.followHookWithCamera();
+      } else if (this.hookConfig.isSwinging) {
+        this.startHookThrow();
+      }
+    });
+  }
+
+  startHookThrow() {
+    const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+
+    // velocidade fixa
+    this.hookConfig.velocityX = Math.cos(angleRad) * this.hookConfig.throwSpeed;
+    this.hookConfig.velocityY = Math.sin(angleRad) * this.hookConfig.throwSpeed;
+
+    this.hookConfig.isSwinging = false;
+    this.hookConfig.gravity = true;
+
+    this.followHookWithCamera();
+  }
+
+  // TRASH METHODS
+
+  setupTrashZones() {
+    // Aumenta a quantidade de zonas
+    const totalZonas = 12; // por exemplo, 12 zonas
+    for (let i = 0; i < totalZonas; i++) {
+      let attempts = 0;
+      const minDistanceBetweenZones = 220;
+      let x, y, profundidade;
+
+      do {
+        // Posição X aleatória em torno do player
+        const offsetX = Phaser.Math.Between(-500, 500);
+        x = Phaser.Math.Clamp(this.player.x + offsetX, 60, 1366 - 60);
+
+        // Escolhe profundidade aleatória
+        profundidade = Phaser.Math.RND.pick([1, 2, 3]); // 1 rasa, 2 média, 3 profunda
+
+        // Y baseado na profundidade
+        const minY = this.player.y + 150 + (profundidade - 1) * 120;
+        const maxY = this.player.y + 300 + (profundidade - 1) * 120;
+        y = Phaser.Math.Between(minY, maxY);
+        y = Phaser.Math.Clamp(y, 200, this.gameConfig.height - 100);
+
+        attempts++;
+      } while (
+        this.zonasDeLixo.some(
+          (z) =>
+            Phaser.Math.Distance.Between(z.x, z.y, x, y) <
+            minDistanceBetweenZones
+        ) &&
+        attempts < 40
+      );
+
+      this.spawnSingleZone(x, y, profundidade);
+    }
+  }
+
+  spawnSingleZone(x, y, profundidade = 1) {
+    const zonaGroup = this.add.group();
+    const positions = [];
+    const needed = Phaser.Math.Between(3, 3);
+
+    for (let j = 0; j < needed; j++) {
+      let px,
+        py,
+        posAttempts = 0;
+      do {
+        px = Phaser.Math.Between(-50, 50);
+        py = Phaser.Math.Between(-30, 30);
+        posAttempts++;
+      } while (
+        positions.some(
+          (p) => Phaser.Math.Distance.Between(p.x, p.y, px, py) < 40
+        ) &&
+        posAttempts < 30
+      );
+      positions.push({ x: px, y: py });
+    }
+
+    for (let k = 0; k < positions.length; k++) {
+      const tipo = Phaser.Math.RND.pick(this.trashConfig.types);
+      const s = this.add.image(x + positions[k].x, y + positions[k].y, tipo);
+      s.setScale(0.04);
+      s.setAlpha(0.95);
+      s.setDepth(10);
+      zonaGroup.add(s);
+    }
+
+    const zonaLixo = this.add.zone(x, y, 160, 120);
+    zonaLixo.x = x;
+    zonaLixo.y = y;
+    zonaLixo.profundidade = profundidade; // salva a profundidade
+    zonaLixo.lixoGroup = zonaGroup;
+    zonaLixo.coletas = 0;
+
+    if (this.physics && this.physics.world && this.physics.world.enable) {
+      this.physics.world.enable(zonaLixo);
+      if (zonaLixo.body) {
+        zonaLixo.body.setAllowGravity(false);
+        zonaLixo.body.setImmovable(true);
+      }
+    }
+
+    // Debug gráfico opcional
+    // const g = this.add.graphics();
+    // g.lineStyle(
+    //   2,
+    //   profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000
+    // );
+    // g.strokeRect(x - 80, y - 60, 160, 120);
+    // g.setDepth(9999);
+    // zonaLixo.debugGraphics = g;
+
+    this.zonasDeLixo.push(zonaLixo);
+    return zonaLixo;
+  }
+
+  // (This duplicate block has been removed to fix syntax errors)
+
+  createPopup() {
+    const popup = this.add.container(this.player.x, this.player.y); // centro (1366x768 / 2)
+    popup.setDepth(9999);
+
+    const bg = this.add.rectangle(0, 0, 600, 300, 0x000000, 0.8);
+    bg.setStrokeStyle(3, 0xffffff);
+
+    const texto = this.add
+      .text(
+        0,
+        -60,
+        "VITÓRIA!\n" +
+          "Muito obrigado por jogar a demo de Praia de plástico,\n" +
+          "lembre-se de sempre deixar os oceanos mais limpos.",
+        {
+          fontSize: "20px",
+          color: "#ffffff",
+          align: "center",
+          wordWrap: { width: 550 },
+        }
+      )
+      .setOrigin(0.5);
+
+    const botaoOk = this.add
+      .text(0, 40, "OK", {
+        fontSize: "28px",
+        color: "#00ff00",
+        backgroundColor: "#003300",
+        padding: 10,
+      })
+      .setOrigin(0.5)
+      .setInteractive();
+
+    const botaoCreditos = this.add
+      .text(0, botaoOk.y + 60, "Créditos", {
+        fontSize: "28px",
+        color: "#d8d8d8ff",
+        backgroundColor: "#313131ff",
+        padding: 10,
+      })
+      .setOrigin(0.5)
+      .setInteractive();
+
+    botaoOk.on("pointerdown", () => {
+      popup.destroy(); // fecha popup
+    });
+
+    botaoCreditos.on("pointerdown", () => {
+      this.scene.start("CreditsScene");
+    });
+
+    popup.add([bg, texto, botaoOk, botaoCreditos]);
+  }
+
+  // MOSCAO METHODS
+
+  setupShopkeeper() {
+    this.npc = this.add
+      .image(0, 0, "moscaoplaceholder")
+      .setScale(0.09)
+      .setDepth(1)
+      .setVisible(false); // invisível até spawn
+
+    this.npcText = this.add
+      .text(0, 0, "", {
+        fontSize: "16px",
+        fontFamily: "upheaval",
+        fill: "#ffffff",
+        backgroundColor: "#000000aa",
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(9999)
+      .setVisible(false); // invisível até o player chegar perto
+  }
+
+  setupObstaculos() {
+    this.obstaculos = this.add.group();
+
+    this.time.addEvent({
+      delay: 1000,
+      callback: () => this.spawnObstaculo(),
+      loop: true,
+    });
+  }
+
+  spawnObstaculo() {
+    const tipos = ["peixeLeaoMar", "peixeBaru", "tartarugaCabecuda"];
+    const tipo = Phaser.Math.RND.pick(tipos);
+    let x, y, sprite, velocidade;
+
+    if (tipo === "peixeLeaoMar") {
+      // segunda metade do mapa (parte mais funda)
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = Phaser.Math.Between(
+        this.gameConfig.height / 2 + 100,
+        this.gameConfig.height / 2
+      );
+      sprite = this.physics.add.image(x, y, "peixeLeaoMar").setScale(0.12);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(150, 200); // rápido
+    } else if (tipo === "peixeBaru") {
+      // spawna "entre os leões" => mesma região, mas mais central
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = Phaser.Math.Between(
+        this.gameConfig.height / 2 + 100,
+        this.gameConfig.height - 300
+      );
+      sprite = this.physics.add.image(x, y, "peixeBaru").setScale(0.12);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(60, 90); // lento
+    } else if (tipo === "tartarugaCabecuda") {
+      // só no chão
+      x = Phaser.Math.Between(50, this.gameConfig.width);
+      y = this.gameConfig.height - 40;
+      sprite = this.physics.add.image(x, y, "tartarugaCabecuda").setScale(0.15);
+      sprite.baseScale = sprite.scaleX;
+      sprite.swimTime = 0;
+      velocidade = Phaser.Math.Between(20, 40); // bem devagar
+    }
+
+    // Configuração genérica
+    sprite.setDepth(10);
+    sprite.velocidade = velocidade;
+    sprite.tipo = tipo;
+    sprite.direcao = Phaser.Math.RND.pick([-1, 1]); // esquerda ou direita
+    sprite.body.setAllowGravity(false);
+    sprite.body.setImmovable(true);
+    this.obstaculos.add(sprite);
+  }
+
+  // UPDATE METHODS
+
+  update(time, delta) {
+    this.updatePlayer(delta);
+    this.updateHook(delta);
+    this.updateTrashZones(delta);
+    this.updateShopkeeper();
+    this.updateOndas(time, delta);
+    this.updateObstaculos(delta);
+  }
+
+  updatePlayer(delta) {
+    const playerStartPosition = {
+      x: this.player.x,
+      y: this.player.y,
+    };
+
+    this.ratoIdle.setPosition(playerStartPosition.x - 3, playerStartPosition.y);
+
+    const deltaTime = delta / 1000; // Converte para segundos
+
+    if (!this.playerConfig.canMove) return; // Usa playerConfig
+
+    // Aceleração/desaceleração
+    if (this.cursors.left.isDown || this.keyA.isDown) {
+      this.player.setFlipX(true);
+      this.ratoIdle.setFlipX(false);
+      this.playerConfig.velocityX -= this.playerConfig.acceleration * deltaTime;
+    } else if (this.cursors.right.isDown || this.keyD.isDown) {
+      this.player.setFlipX(false);
+      this.ratoIdle.setFlipX(true);
+      this.playerConfig.velocityX += this.playerConfig.acceleration * deltaTime;
+    } else {
+      // Desaceleração
+      if (this.playerConfig.velocityX > 0) {
+        this.playerConfig.velocityX = Math.max(
+          0,
+          this.playerConfig.velocityX -
+            this.playerConfig.deceleration * deltaTime
+        );
+      } else if (this.playerConfig.velocityX < 0) {
+        this.playerConfig.velocityX = Math.min(
+          0,
+          this.playerConfig.velocityX +
+            this.playerConfig.deceleration * deltaTime
+        );
+      }
+    }
+
+    // Limita a velocidade máxima
+    this.playerConfig.velocityX = Phaser.Math.Clamp(
+      this.playerConfig.velocityX,
+      -this.playerConfig.speed,
+      this.playerConfig.speed
+    );
+
+    // Aplica o movimento
+    this.player.x += this.playerConfig.velocityX * deltaTime;
+
+    // Arredonda
+    this.player.x = Math.round(this.player.x);
+
+    // Bezier foda
+    if (Math.abs(this.playerConfig.velocityX) > 0) {
+      this.walkTime += deltaTime * 10; // controla a velocidade da onda
+      const stretchY = 1 + Math.sin(this.walkTime) * 0.05;
+      const stretchX = 1 - Math.sin(this.walkTime) * 0.03;
+      this.player.setScale(
+        this.playerConfig.baseScale * stretchX,
+        this.playerConfig.baseScale * stretchY
+      );
+    } else {
+      this.walkTime = 0;
+      this.player.setScale(this.playerConfig.baseScale); // volta ao normal
+    }
+
+    // Inclinação do ratoIdle para dar sensação de velocidade
+    if (Math.abs(this.playerConfig.velocityX) > 0) {
+      // mais velocidade = mais inclinação
+      const maxTilt = 15; // graus de inclinação máxima
+      const tilt = Phaser.Math.Clamp(
+        (this.playerConfig.velocityX / this.playerConfig.speed) * maxTilt,
+        -maxTilt,
+        maxTilt
+      );
+
+      // aplica ângulo inverso ao flip (esquerda/direita)
+      this.ratoIdle.angle = -tilt;
+    } else {
+      // volta ao normal quando parado
+      this.ratoIdle.angle = 0;
+    }
+
+    // Limita o movimento para não sair da tela
+    const playerWidth = this.player.displayWidth;
+    this.player.x = Phaser.Math.Clamp(
+      this.player.x,
+      playerWidth / 2,
+      this.gameConfig.width - playerWidth / 2
+    );
+  }
+
+  updateHook(delta) {
+    if (!this.hookConfig.hook) return;
+
+    const deltaSeconds = delta / 1000;
+
+    if (this.hookConfig.isSwinging) {
+      // Movimento pendular
+      this.hookConfig.hook.angle +=
+        this.hookConfig.swingSpeed *
+        this.hookConfig.swingDirection *
+        deltaSeconds;
+
+      // Inverte a direção nos limites
+      if (this.hookConfig.hook.angle >= 45) {
+        this.hookConfig.hook.angle = 45;
+        this.hookConfig.swingDirection = -1;
+      } else if (this.hookConfig.hook.angle <= -45) {
+        this.hookConfig.hook.angle = -45;
+        this.hookConfig.swingDirection = 1;
+      }
+    } else if (this.hookConfig.gravity) {
+      const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
+      const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
+      const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
+
+      if (!this.rato) {
+        this.rato = this.setupRatoSemArpao();
+        this.rato.angle = this.hookConfig.hook.angle;
+        this.rato.setOrigin(0.5, 0.5).setDepth(6);
+      }
+
+      this.hookConfig.hook.setTexture("arpao");
+
+      if (!this.hookConfig.returning) {
+        this.hookConfig.hook.x -= moveX;
+        this.hookConfig.hook.y -= moveY;
+
+        // Checa se saiu da tela
+        if (
+          this.hookConfig.hook.y > this.gameConfig.height + 20 ||
+          this.hookConfig.hook.y < -20 ||
+          this.hookConfig.hook.x < -20 ||
+          this.hookConfig.hook.x > this.gameConfig.width + 20
+        ) {
+          this.hookConfig.returning = true;
+        }
+      } else {
+        // Retorno do anzol para a posição inicial
+        const dx = this.hookConfig.startX - this.hookConfig.hook.x;
+        const dy = this.hookConfig.startY - this.hookConfig.hook.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 5) {
+          // Perto o suficiente da posição inicial
+          this.hookConfig.hook.destroy(); // Remove o anzol
+          console.log("Anzol retornou e foi removido");
+          if (this.rato) {
+            this.rato.destroy();
+            this.rato = null;
+          }
+          this.hookConfig.hook = null;
+          this.hookConfig.isSwinging = false;
+          this.hookConfig.gravity = false;
+          this.hookConfig.returning = false;
+          this.playerConfig.canMove = true; // Permite o movimento do player
+          this.ratoIdle.setVisible(true);
+          this.resetCamera(); // Reset camera to follow player
+          return;
+        }
+
+        // Voltar na direção da posição inicial
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        this.hookConfig.hook.x += dirX * this.hookConfig.speed * deltaSeconds;
+        this.hookConfig.hook.y += dirY * this.hookConfig.speed * deltaSeconds;
+      }
+    }
+
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
+      // Check if zonasDeLixo exists before using forEach
+      if (this.zonasDeLixo) {
+        this.zonasDeLixo.forEach((zona) => {
+          const bounds = zona.getBounds();
+          console.log(
+            "Anzol:",
+            this.hookConfig.hook.x,
+            this.hookConfig.hook.y,
+            "Zona:",
+            bounds
+          );
+          if (
+            Phaser.Geom.Rectangle.Contains(
+              bounds,
+              this.hookConfig.hook.x,
+              this.hookConfig.hook.y
+            )
+          ) {
+            console.log("Entrou na zona!");
+            this.coletarLixo(zona);
+          }
+        });
+      }
+    }
+  }
+
+  resetHook() {
+    if (this.hookConfig.hook) {
+      this.hookConfig.hook.destroy();
+    }
+    if (this.rato) {
+      this.rato.destroy();
+      this.rato = null;
+    }
+
+    this.hookConfig.hook = null;
+    this.hookConfig.isSwinging = false;
+    this.hookConfig.gravity = false;
+    this.hookConfig.returning = false;
+
+    this.playerConfig.canMove = true;
+    this.ratoIdle.setVisible(true);
+
+    this.resetCamera(); // volta a câmera pro player
+
+    if (this.hookCollider) {
+      this.hookCollider.destroy();
+      this.hookCollider = null;
+    }
+  }
+
+  updateTrashZones(delta) {
+    this.trashConfig.respawnTimer += delta;
+    if (this.trashConfig.respawnTimer >= this.trashConfig.respawnDelay) {
+      this.trashConfig.respawnTimer = 0;
+      while (this.zonasDeLixo.length < this.trashConfig.targetZones) {
+        // tenta achar uma posição válida
+        let attempts = 0;
+        const minDistanceBetweenZones = 220;
+        let x, y;
+        do {
+          const offsetX = Phaser.Math.Between(-600, 600);
+          x = Phaser.Math.Clamp(this.player.x + offsetX, 60, 1366 - 60);
+          const minY = this.player.y + 180;
+          const maxY = Math.min(760, this.player.y + 600);
+          y = Phaser.Math.Between(minY, maxY);
+          y = Phaser.Math.Clamp(y, 200, 760);
+          attempts++;
+        } while (
+          this.zonasDeLixo.some(
+            (z) =>
+              Phaser.Math.Distance.Between(z.x, z.y, x, y) <
+              minDistanceBetweenZones
+          ) &&
+          attempts < 50
+        );
+
+        this.spawnSingleZone(x, y);
+      }
+    }
+  }
+
+  resetCamera() {
+    const cam = this.cameras.main;
+
+    // Volta a seguir o player suavemente
+    cam.startFollow(this.player, true, 0.05, 0.05);
+
+    // Zoom suave de volta
+    this.tweens.add({
+      targets: cam,
+      zoom: this.cameraConfig.defaultZoom,
+      duration: this.cameraConfig.tweenDuration,
+      ease: "Power2",
+    });
+  }
+
+  updateShopkeeper() {
+    if (!this.npc || !this.npc.visible) return;
+
+    const distance = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      this.npc.x,
+      this.npc.y
+    );
+
+    if (distance <= 100) {
+      this.npcText.setPosition(this.npc.x, this.npc.y - 60);
+      this.npcText.setText(
+        "Bzz bzz! Escuta aqui, humano!\n" +
+          "Chu-chu! O peixe-leão é esperto e invasivo, vai destruir teu arpão, tsk tsk\n" +
+          "Blip blip! O peixe-baru? Ih, ele não pode ser caçado, bzz!\n" +
+          "E olha a tartaruga… glub glub… se encosta, prende teu arpão no casco, squish\n" +
+          "Fica esperto, bzz bzz!"
+      );
+      this.npcText.setVisible(true);
+    } else {
+      this.npcText.setVisible(false);
+    }
+  }
+
+  followHookWithCamera() {
+    const cam = this.cameras.main;
+
+    // Começa a seguir o hook suavemente
+    cam.startFollow(this.hookConfig.hook, true, 0.05, 0.05);
+
+    // Faz o zoom suave ao mesmo tempo
+    this.tweens.add({
+      targets: cam,
+      zoom: this.cameraConfig.hookZoom,
+      duration: this.cameraConfig.tweenDuration,
+      ease: "Power2",
+    });
+  }
+
+  coletarLixo(zona) {
+    if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
+    zona._processing = true;
+
+    // Incrementa coletas da zona
+    zona.coletas = (zona.coletas || 0) + 1;
+
+    // Pega os sprites da zona
+    const lixoSprites = zona.lixoGroup.getChildren();
+    if (lixoSprites.length > 0) {
+      // Escolhe aleatoriamente um sprite da zona
+      const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
+      const spriteEscolhido = lixoSprites[idx];
+
+      // Cria o lixo visual no anzol
+      const lixo = this.add.image(
+        this.hookConfig.hook.x,
+        this.hookConfig.hook.y,
+        spriteEscolhido.texture.key
+      );
+      lixo.setScale(0.05);
+      lixo.setDepth(10);
+
+      // Remove o sprite da zona para não repetir
+      zona.lixoGroup.remove(spriteEscolhido, true, true);
+
+      // Animação do lixo subindo e sumindo
+      this.tweens.add({
+        targets: lixo,
+        y: this.hookConfig.hook.y - 50,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => lixo.destroy(),
+      });
+    }
+
+    // Adiciona dinheiro baseado na profundidade
+    let valorLixo = Phaser.Math.Between(10, 50);
+    if (zona.profundidade === 2) valorLixo *= 1.5;
+    else if (zona.profundidade === 3) valorLixo *= 2;
+    this.uiConfig.money += Math.floor(valorLixo);
+    if (this.textoDinheiro)
+      this.textoDinheiro.setText(`Lixo coletado: ${this.uiConfig.money}`);
+
+    const REMOVER_APOS = 3;
+    if (zona.coletas >= REMOVER_APOS) {
+      // Anima e remove os sprites restantes
+      if (zona.lixoGroup) {
+        this.tweens.add({
+          targets: zona.lixoGroup.getChildren(),
+          alpha: 0,
+          scale: 0,
+          duration: 800,
+          onComplete: () => zona.lixoGroup.clear(true, true),
+        });
+      }
+
+      // Remove o debug graphics
+      if (zona.debugGraphics) zona.debugGraphics.destroy();
+
+      // Remove a zona do array
+      const idx = this.zonasDeLixo.indexOf(zona);
+      if (idx > -1) this.zonasDeLixo.splice(idx, 1);
+
+      // Destrói a zona
+      if (zona.destroy) zona.destroy();
+
+      // Atualiza contador de zonas limpas
+      this.trashCollected = (this.trashCollected || 0) + 1;
+      console.log(`Zona limpa! Total de zonas limpas: ${this.trashCollected}`);
+
+      // Mostra popup se atingir a meta
+      if (!this.popupShown && this.trashCollected >= this.trashGoal) {
+        this.popupShown = true;
+        this.createPopup();
+      }
+    } else {
+      // Permite nova coleta após delay
+      this.time.delayedCall(
+        250,
+        () => {
+          zona._processing = false;
+        },
+        [],
+        this
+      );
+    }
+
+    // Inicia retorno do anzol
+    this.hookConfig.returning = true;
+  }
+
+  // MOSCAO SPAWN
+  spawnShopkeeper() {
+    if (!this.npc) return;
+
+    const spawnX = Phaser.Math.Clamp(
+      this.player.x + 200,
+      50,
+      this.gameConfig.width - 50
+    );
+    const spawnY = this.player.y;
+
+    this.npc.setPosition(spawnX, spawnY);
+    this.npc.setVisible(true);
+  }
+
+  updateOndas(time, delta) {
+    // Movimento das ondas com valores mais altos
+    this.onda1.tilePositionX += 0.5; // Direita
+    this.onda2.tilePositionX -= 1; // Esquerda
+
+    // Efeito sinusoidal de sobe/desce CORRIGIDO
+    // Use time * 0.001 para um movimento mais suave
+    const waveTime = time * 0.001;
+
+    // Posição Y base + movimento sinusoidal
+    this.onda1.y = this.player.y + Math.sin(waveTime) * 9; // Movimento suave
+    this.onda2.y = this.player.y + Math.cos(waveTime) * 4;
+  }
+
+  updateObstaculos(delta) {
+    const dt = delta / 1000;
+
+    this.obstaculos.getChildren().forEach((obstaculo) => {
+      obstaculo.x += obstaculo.velocidade * obstaculo.direcao * dt;
+
+      // flip do sprite
+      obstaculo.setFlipX(obstaculo.direcao > 0);
+
+      // animação de "nado"
+      obstaculo.swimTime += dt * 6; // controla a velocidade da animação
+      const stretchY = 1 + Math.sin(obstaculo.swimTime) * 0.1;
+      const stretchX = 1 - Math.sin(obstaculo.swimTime) * 0.05;
+      obstaculo.setScale(
+        obstaculo.baseScale * stretchX,
+        obstaculo.baseScale * stretchY
+      );
+
+      // remove se sair da tela
+      if (obstaculo.x < -50 || obstaculo.x > this.gameConfig.width + 50) {
+        obstaculo.destroy();
+      }
+    });
+  }
+
+  handleObstacleCollision(obstaculo, hook) {
+    if (!this.hookConfig.hook) return;
+
+    switch (obstaculo.tipo) {
+      case "peixeLeaoMar":
+        console.log("Arpão destruído pelo peixe-leão!");
+        this.resetHook();
+        break;
+
+      case "peixeBaru":
+        // destrói o peixe
+        obstaculo.destroy();
+
+        // perde 100 de dinheiro/lixo
+        this.uiConfig.money = Math.max(0, this.uiConfig.money - 100);
+        if (this.textoDinheiro)
+          this.textoDinheiro.setText(`Lixo coletado: ${this.uiConfig.money}`);
+
+        console.log("Peixe-baru atingido! -100 dinheiro");
+        break;
+
+      case "tartarugaCabecuda":
+        if (!this.hookConfig.returning && !this.hookConfig.hook._trapped) {
+          console.log("Arpão preso na tartaruga!");
+          this.hookConfig.gravity = false;
+          this.hookConfig.hook._trapped = true; // flag para não repetir
+
+          // espera 5 segundos e reseta o hook
+          this.time.delayedCall(5000, () => {
+            if (this.hookConfig.hook) {
+              this.resetHook();
+            }
+          });
+        }
+        break;
+    }
+  }
+}
