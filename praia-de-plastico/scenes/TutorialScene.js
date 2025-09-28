@@ -18,30 +18,17 @@ class TutorialScene extends Phaser.Scene {
     // Imagem de tutorial
     const tutorial = this.add.image(centerX, centerY, "tutorial");
     tutorial.setOrigin(0.5, 0.5);
-    tutorial.setScale(2);
+    tutorial.setScale(1.15);
     tutorial.setDepth(1);
 
-    // // Botão
-    // const button = this.add.image(centerX, centerY + 200, "btnStart");
-    // button.setOrigin(0.5, 0.5);
-    // button.setInteractive({ useHandCursor: true });
-    // button.setScale(0.5);
+    // Dentro da cena atual
+    setTimeout(() => {
+      this.cameras.main.fadeOut(1000, 0, 0, 0); // 1000ms = 1 segundo, cor preta (RGB 0,0,0)
+    }, 3000);
 
-    // // Texto em cima do botão (opcional)
-    // this.add
-    //   .text(centerX, centerY + 200, "Começar", {
-    //     fontSize: "32px",
-    //     color: "#ffffff",
-    //     fontStyle: "bold",
-    //   })
-    //   .setOrigin(0.5);
-
-    // // Clique no botão → fade para preto → troca de cena
-    // button.on("pointerdown", () => {
-    //   this.cameras.main.once("camerafadeoutcomplete", () => {
-    //     this.scene.start("MainScene");
-    //   });
-    //   this.cameras.main.fadeOut(1000, 0, 0, 0); // 1s fade para preto
-    // });
+    // Quando o fade terminar, troca para a próxima cena
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      this.scene.start("MainScene");
+    });
   }
 }

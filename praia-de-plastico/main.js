@@ -20,11 +20,16 @@ const config = {
     fixedStep: true,
     arcade: {
       gravity: { y: speedDown },
-      debug: true,
+      debug: false,
       useDeltas: true,
     },
   },
-  scene: [MainScene], // cena registrada aqui
+
+  css: {
+    fontFamily: `'GameFont', 'PixelFont', Arial, 'upheaval'`,
+  },
+
+  scene: [MenuScene, MainScene, CreditsScene, TutorialScene], // cena registrada aqui
 };
 
 // Inicializa o game

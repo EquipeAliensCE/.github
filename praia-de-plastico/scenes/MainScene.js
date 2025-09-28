@@ -67,30 +67,12 @@ class MainScene extends Phaser.Scene {
     // MOSCAO
     this.shopConfig = {
       npc: null,
-    isVisible: false,
-    spawnDelay: 4000,
-    lastHookTime: 0,
-    scale: 0.09,
-    spawnDistance: 600,
-    interactionRange: 80, 
-    interactionText: null,
+      isVisible: false,
+      spawnDelay: 1000, // 4 segundo de delay para spawnar
+      lastHookTime: 0, // Armazena quando o anzol foi usado pela última vez
+      scale: 0.15,
+      spawnDistance: 600, // Aumentado para garantir que fique fora da bound da câmera
     };
-
-    // UPGRADES
-
-   this.shopUpgrades = {
-  estrela: {
-    cost: 100,
-    unlocked: false,     // se o player comprou
-    active: false,       // se tá ligado nesse lançamento
-    usedThisLaunch: false, // se já foi usado nesse disparo
-    effect: () => {
-      this.shopUpgrades.estrela.active = true;
-      this.shopUpgrades.estrela.usedThisLaunch = false;
-    }
-  }
-};
-
   }
 
   // PRELOAD
@@ -170,10 +152,11 @@ class MainScene extends Phaser.Scene {
     this.setupMoneyUI();
     this.setupShopkeeper();
     this.setupObstaculos();
+    this.spawnShopkeeper();
 
     // TRASH
     this.trashCollected = 0;
-    this.trashGoal = 1; // quantas zonas completas para abrir o popup, 1 pois debug
+    this.trashGoal = 5; // quantas zonas completas para abrir o popup, 1 pois debug
     this.popupShown = false; // evita abrir popup várias vezes
     this.popupActive = false; // bloqueia entradas enquanto o popup estiver ativo
 
@@ -183,7 +166,7 @@ class MainScene extends Phaser.Scene {
     this.walkTime = 0; // adiciona aqui
 
     this.trashCollected = 0;
-    this.trashGoal = 1;
+    this.trashGoal = 5;
     this.popupShown = false;
     this.popupActive = false;
 
@@ -287,11 +270,17 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMoneyUI() {
-  this.textoDinheiro = this.add.text(this.player.x - 324, this.player.y - 401, "R$ 0", {
-    fontSize: "32px",
-    fill: "#000000ff",
-    fontStyle: "bold",
-  });
+    this.textoDinheiro = this.add.text(
+      this.player.x - 152,
+      this.player.y - 385,
+      "Lixo coletado: 0",
+      {
+        fontSize: "32px",
+        fontFamily: "upheaval",
+        fill: "#000000ff",
+        fontStyle: "bold",
+      }
+    );
 
     this.textoDinheiro.setOrigin(1, 0); // origem no canto superior direito
 
@@ -312,10 +301,7 @@ class MainScene extends Phaser.Scene {
   // HOOK METHODS
 
   throwHook() {
-  if (this.shopUpgrades.estrela.unlocked) {
-    this.shopUpgrades.estrela.effect(); // ativa o upgrade nesse disparo
-    this.shopUpgrades.estrela.unlocked = false; // ⚡ reseta, tem que comprar de novo
-  }
+    // Cria o anzol
     const hookStartPosition = {
       x: this.player.x + 5,
       y: this.player.y + 15,
@@ -474,14 +460,14 @@ class MainScene extends Phaser.Scene {
     }
 
     // Debug gráfico opcional
-    const g = this.add.graphics();
-    g.lineStyle(
-      2,
-      profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000
-    );
-    g.strokeRect(x - 80, y - 60, 160, 120);
-    g.setDepth(9999);
-    zonaLixo.debugGraphics = g;
+    // const g = this.add.graphics();
+    // g.lineStyle(
+    //   2,
+    //   profundidade === 1 ? 0x00ff00 : profundidade === 2 ? 0xffff00 : 0xff0000
+    // );
+    // g.strokeRect(x - 80, y - 60, 160, 120);
+    // g.setDepth(9999);
+    // zonaLixo.debugGraphics = g;
 
     this.zonasDeLixo.push(zonaLixo);
     return zonaLixo;
@@ -537,7 +523,7 @@ class MainScene extends Phaser.Scene {
     });
 
     botaoCreditos.on("pointerdown", () => {
-      window.open("./scenes/CreditsScene.js");
+      this.scene.start("CreditsScene");
     });
 
     popup.add([bg, texto, botaoOk, botaoCreditos]);
@@ -546,22 +532,23 @@ class MainScene extends Phaser.Scene {
   // MOSCAO METHODS
 
   setupShopkeeper() {
-    this.shopConfig.npc = this.add.image(0, 0, "moscaoplaceholder");
-    this.shopConfig.npc.setScale(this.shopConfig.scale);
-    this.shopConfig.npc.setDepth(1);
-    this.shopConfig.npc.setVisible(false);
+    this.npc = this.add
+      .image(0, 0, "moscaoplaceholder")
+      .setScale(0.09)
+      .setDepth(1)
+      .setVisible(false); // invisível até spawn
 
-    // Texto de interação, inicialmente invisível
-    this.shopConfig.interactionText = this.add
-    .text(0, 0, "Pressione E para interagir", {
-      fontSize: "24px",
-      fill: "#ffffff",
-      backgroundColor: "#000000aa",
-      padding: { x: 8, y: 4 },
-    })
-    .setOrigin(0.5)
-    .setDepth(9999)
-    .setVisible(false);
+    this.npcText = this.add
+      .text(0, 0, "", {
+        fontSize: "16px",
+        fontFamily: "upheaval",
+        fill: "#ffffff",
+        backgroundColor: "#000000aa",
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(9999)
+      .setVisible(false); // invisível até o player chegar perto
   }
 
   setupObstaculos() {
@@ -754,59 +741,79 @@ class MainScene extends Phaser.Scene {
         this.rato.setOrigin(0.5, 0.5).setDepth(6);
       }
 
-    }
+      this.hookConfig.hook.setTexture("arpao");
 
-    this.hookConfig.hook.setTexture("arpao");
+      if (!this.hookConfig.returning) {
+        this.hookConfig.hook.x -= moveX;
+        this.hookConfig.hook.y -= moveY;
 
-    if (!this.hookConfig.returning) {
-      this.hookConfig.hook.x -= moveX;
-      this.hookConfig.hook.y -= moveY;
-
-      // Checa colisão com todas as zonas
-      if (this.zonasDeLixo.length > 0) {
-        this.zonasDeLixo.forEach((zona) => {
-          const bounds = zona.getBounds();
-          if (Phaser.Geom.Rectangle.Contains(bounds, this.hookConfig.hook.x, this.hookConfig.hook.y)) {
-            this.coletarLixo(zona, this.shopUpgrades.estrela.active);
-          }
-        });
-      }
-
-      // Checa se saiu da tela
-      if (
-        this.hookConfig.hook.y > this.gameConfig.height + 20 ||
-        this.hookConfig.hook.y < -20 ||
-        this.hookConfig.hook.x < -20 ||
-        this.hookConfig.hook.x > this.gameConfig.width + 20
-      ) {
-        this.hookConfig.returning = true;
-      }
-    } else {
-      // Retorno do anzol
-      const dx = this.hookConfig.startX - this.hookConfig.hook.x;
-      const dy = this.hookConfig.startY - this.hookConfig.hook.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < 5) {
-        this.hookConfig.hook.destroy();
-        if (this.rato) { this.rato.destroy(); this.rato = null; }
-        this.hookConfig.hook = null;
-        this.hookConfig.isSwinging = false;
-        this.hookConfig.gravity = false;
-        this.hookConfig.returning = false;
-        this.playerConfig.canMove = true;
-        this.ratoIdle.setVisible(true);
-        this.resetCamera();
+        // Checa se saiu da tela
+        if (
+          this.hookConfig.hook.y > this.gameConfig.height + 20 ||
+          this.hookConfig.hook.y < -20 ||
+          this.hookConfig.hook.x < -20 ||
+          this.hookConfig.hook.x > this.gameConfig.width + 20
+        ) {
+          this.hookConfig.returning = true;
+        }
       } else {
+        // Retorno do anzol para a posição inicial
+        const dx = this.hookConfig.startX - this.hookConfig.hook.x;
+        const dy = this.hookConfig.startY - this.hookConfig.hook.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 5) {
+          // Perto o suficiente da posição inicial
+          this.hookConfig.hook.destroy(); // Remove o anzol
+          console.log("Anzol retornou e foi removido");
+          if (this.rato) {
+            this.rato.destroy();
+            this.rato = null;
+          }
+          this.hookConfig.hook = null;
+          this.hookConfig.isSwinging = false;
+          this.hookConfig.gravity = false;
+          this.hookConfig.returning = false;
+          this.playerConfig.canMove = true; // Permite o movimento do player
+          this.ratoIdle.setVisible(true);
+          this.resetCamera(); // Reset camera to follow player
+          return;
+        }
+
+        // Voltar na direção da posição inicial
         const dirX = dx / distance;
         const dirY = dy / distance;
         this.hookConfig.hook.x += dirX * this.hookConfig.speed * deltaSeconds;
         this.hookConfig.hook.y += dirY * this.hookConfig.speed * deltaSeconds;
       }
     }
-  }
-}
 
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
+      // Check if zonasDeLixo exists before using forEach
+      if (this.zonasDeLixo) {
+        this.zonasDeLixo.forEach((zona) => {
+          const bounds = zona.getBounds();
+          console.log(
+            "Anzol:",
+            this.hookConfig.hook.x,
+            this.hookConfig.hook.y,
+            "Zona:",
+            bounds
+          );
+          if (
+            Phaser.Geom.Rectangle.Contains(
+              bounds,
+              this.hookConfig.hook.x,
+              this.hookConfig.hook.y
+            )
+          ) {
+            console.log("Entrou na zona!");
+            this.coletarLixo(zona);
+          }
+        });
+      }
+    }
+  }
 
   resetHook() {
     if (this.hookConfig.hook) {
@@ -880,85 +887,29 @@ class MainScene extends Phaser.Scene {
   }
 
   updateShopkeeper() {
-    const npc = this.shopConfig.npc;
+    if (!this.npc || !this.npc.visible) return;
 
-    // Checa se o NPC ainda não está visível para spawnar
-    if (!npc) return;
-
-    if (!this.shopConfig.isVisible) {
-        // Se ainda não está visível, spawn
-        this.spawnShopkeeper();
-        return; // Sai do update desse frame, só começa a checar interação no próximo
-    }
-
-    // Distância entre jogador e NPC
     const distance = Phaser.Math.Distance.Between(
-        this.player.x,
-        this.player.y,
-        npc.x,
-        npc.y
+      this.player.x,
+      this.player.y,
+      this.npc.x,
+      this.npc.y
     );
 
-    if (distance <= this.shopConfig.interactionRange) {
-        // Mostra o texto
-        this.shopConfig.interactionText.setPosition(npc.x, npc.y - 60);
-        this.shopConfig.interactionText.setVisible(true);
-
-        // Tecla E
-        if (!this.keyE) 
-            this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-        if (Phaser.Input.Keyboard.JustDown(this.keyE)) {
-            this.openShopMenu();
-        }
+    if (distance <= 100) {
+      this.npcText.setPosition(this.npc.x, this.npc.y - 60);
+      this.npcText.setText(
+        "Bzz bzz! Escuta aqui, humano!\n" +
+          "Chu-chu! O peixe-leão é esperto e invasivo, vai destruir teu arpão, tsk tsk\n" +
+          "Blip blip! O peixe-baru? Ih, ele não pode ser caçado, bzz!\n" +
+          "E olha a tartaruga… glub glub… se encosta, prende teu arpão no casco, squish\n" +
+          "Fica esperto, bzz bzz!"
+      );
+      this.npcText.setVisible(true);
     } else {
-        this.shopConfig.interactionText.setVisible(false);
+      this.npcText.setVisible(false);
     }
-}
-
-openShopMenu() {
-  if (this.popupActive) return;
-  this.popupActive = true;
-
-  const menu = this.add.container(this.player.x, this.player.y - 50).setDepth(10000);
-
-  const bg = this.add.rectangle(0, 0, 400, 300, 0x000000, 0.9);
-  bg.setStrokeStyle(3, 0xffffff);
-
-  const title = this.add.text(0, -120, "MENU DE UPGRADES", {
-    fontSize: "28px",
-    color: "#ffffff",
-    fontStyle: "bold",
-  }).setOrigin(0.5);
-
-  // Botões de upgrade (por enquanto só placeholders)
-  const upgrade1 = this.add.text(0, -40, `Estrela (R$ ${this.shopUpgrades.estrela.cost})`, { fontSize: "24px", color: "#00ff00" })
-  .setOrigin(0.5)
-  .setInteractive()
-  .on("pointerdown", () => {
-    if (!this.shopUpgrades.estrela.unlocked && this.uiConfig.money >= this.shopUpgrades.estrela.cost) {
-        this.uiConfig.money -= this.shopUpgrades.estrela.cost;
-        this.shopUpgrades.estrela.unlocked = true;  // compra concluída
-        console.log("Upgrade Estrela comprado! Será usado no próximo lançamento.");
-        if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
-    }
-  });
-  const upgrade2 = this.add.text(0, 20, "Upgrade 2", { fontSize: "24px", color: "#00ff00" }).setOrigin(0.5);
-  const upgrade3 = this.add.text(0, 80, "Upgrade 3", { fontSize: "24px", color: "#00ff00" }).setOrigin(0.5);
-
-  // Botão de fechar
-  const closeBtn = this.add.text(0, 140, "FECHAR", { fontSize: "24px", color: "#ffffffff", backgroundColor: "#000000" })
-    .setOrigin(0.5)
-    .setInteractive()
-    .on("pointerdown", () => {
-      menu.destroy();
-      this.popupActive = false;
-    });
-
-  menu.add([bg, title, upgrade1, upgrade2, upgrade3, closeBtn]);
-
-  
-}
+  }
 
   followHookWithCamera() {
     const cam = this.cameras.main;
@@ -976,7 +927,6 @@ openShopMenu() {
   }
 
   coletarLixo(zona) {
-
     if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
     zona._processing = true;
 
@@ -1018,7 +968,7 @@ openShopMenu() {
     else if (zona.profundidade === 3) valorLixo *= 2;
     this.uiConfig.money += Math.floor(valorLixo);
     if (this.textoDinheiro)
-      this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+      this.textoDinheiro.setText(`Lixo coletado: ${this.uiConfig.money}`);
 
     const REMOVER_APOS = 3;
     if (zona.coletas >= REMOVER_APOS) {
@@ -1068,54 +1018,20 @@ openShopMenu() {
     this.hookConfig.returning = true;
   }
 
-// Função auxiliar para criar o lixo visual no hook
-criarLixoNoHook(sprite) {
-  const lixo = this.add.image(this.hookConfig.hook.x, this.hookConfig.hook.y, sprite.texture.key)
-    .setScale(0.05).setDepth(10);
-
-  this.tweens.add({
-    targets: lixo,
-    y: this.hookConfig.hook.y - 50,
-    alpha: 0,
-    duration: 800,
-    onComplete: () => lixo.destroy(),
-  });
-}
-
   // MOSCAO SPAWN
   spawnShopkeeper() {
-    if (!this.shopConfig.npc) return;
+    if (!this.npc) return;
 
-    const npc = this.shopConfig.npc;
-
-    // Largura real do NPC considerando a escala
-    const npcWidth = npc.width * npc.scaleX;
-
-    // Limites visíveis da tela (0 a gameConfig.width)
-    const minX = npcWidth * npc.originX;
-    const maxX = this.gameConfig.width - npcWidth * (1 - npc.originX);
-
-    // Deslocamento para a direita
-    const rightOffset = 100; // aumenta para spawnar mais à direita
-
-    // Limites seguros para spawn
-    let leftLimit = Math.max(minX, this.player.x + rightOffset); // player + offset
-    let rightLimit = Math.min(maxX, this.player.x + this.shopConfig.spawnDistance);
-
-    // Escolhe posição aleatória dentro dessa faixa
-    let spawnX = Phaser.Math.Between(leftLimit, rightLimit);
-
-    // Decide flipX dependendo se está à esquerda ou direita do player
-    npc.setFlipX(spawnX < this.player.x);
-
-    // Altura igual ao player
+    const spawnX = Phaser.Math.Clamp(
+      this.player.x + 200,
+      50,
+      this.gameConfig.width - 50
+    );
     const spawnY = this.player.y;
 
-    npc.setOrigin(0.5, 0.6);
-    npc.setPosition(spawnX, spawnY);
-    npc.setVisible(true);
-    this.shopConfig.isVisible = true;
-}
+    this.npc.setPosition(spawnX, spawnY);
+    this.npc.setVisible(true);
+  }
 
   updateOndas(time, delta) {
     // Movimento das ondas com valores mais altos
@@ -1172,7 +1088,7 @@ criarLixoNoHook(sprite) {
         // perde 100 de dinheiro/lixo
         this.uiConfig.money = Math.max(0, this.uiConfig.money - 100);
         if (this.textoDinheiro)
-          this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+          this.textoDinheiro.setText(`Lixo coletado: ${this.uiConfig.money}`);
 
         console.log("Peixe-baru atingido! -100 dinheiro");
         break;
