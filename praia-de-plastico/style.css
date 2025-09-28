@@ -2,7 +2,7 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   --dkClr:#181818;
   --liClr: whitesmoke;
-  --accClr: #0d0d35;
+  --accClr: hsl(240, 61%, 13%);
 
 }
 
@@ -37,7 +37,7 @@ main{
 }
 
 #gameCanvas{
-  border: 1px solid rgb(0, 0, 0);
+  border: 1px solid rgb(45, 145, 251);
 
 
   position: absolute;

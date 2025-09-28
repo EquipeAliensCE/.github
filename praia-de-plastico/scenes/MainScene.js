@@ -9,7 +9,7 @@ class MainScene extends Phaser.Scene {
     // Game
     this.gameConfig = {
       width: 1366,
-      height: 768,
+      height: 2000, // 768
     };
 
     // Player
@@ -42,6 +42,7 @@ class MainScene extends Phaser.Scene {
       defaultZoom: 2.0,
       hookZoom: 1.5,
       tweenDuration: 1000,
+      verticalScrollThreshold: 300, // Distância do player para começar a mover a câmera
     };
 
     // Trash
@@ -62,29 +63,63 @@ class MainScene extends Phaser.Scene {
       moneyText: null,
       moneyContainer: null,
     };
+
+    // MOSCAO
+    this.shopConfig = {
+      npc: null,
+      isVisible: false,
+      spawnDelay: 4000, // 4 segundo de delay para spawnar
+      lastHookTime: 0, // Armazena quando o anzol foi usado pela última vez
+      scale: 0.09,
+      spawnDistance: 600, // Aumentado para garantir que fique fora da bound da câmera
+    };
   }
 
   // PRELOAD
   preload() {
-    this.load.image("marplaceholder", "assets/sprites/marplaceholder.png");
+    this.load.image("ceubg", "assets/sprites/ceubg.png");
     this.load.image("barcoratosprite", "assets/sprites/barcoratosprite.png");
-    this.load.image("anzolplaceholder", "assets/sprites/anzolplaceholder.png");
+    this.load.image(
+      "moscaoplaceholder",
+      "assets/sprites/moscaoplaceholder.png"
+    );
     this.load.image("garrafa", "assets/sprites/Garrafa.png");
     this.load.image("osso", "assets/sprites/Osso.png");
     this.load.image("plástico", "assets/sprites/plástico.png");
     this.load.image("saco", "assets/sprites/Saco.png");
+
+    // RATO
+    this.load.image("ratoMira", "assets/sprites/ratoMira.png");
+    this.load.image("ratoMiraArpao", "assets/sprites/ratoMiraArpao.png");
+    this.load.image("arpao", "assets/sprites/arpao.png");
+    this.load.image("barcoSemFundo", "assets/sprites/barcoSemFundo.png");
+
+    // ONDAS
+    this.load.image("onda1", "assets/sprites/onda1.png");
+    this.load.image("onda2", "assets/sprites/onda2.png");
   }
 
   // LOAD ASSETS
   loadAssets() {
     const assets = [
-      { key: "marplaceholder", path: "assets/sprites/marplaceholder.png" },
+      { key: "ceubg", path: "assets/sprites/ceubg.png" },
       { key: "barcoratosprite", path: "assets/sprites/barcoratosprite.png" },
-      { key: "anzolplaceholder", path: "assets/sprites/anzolplaceholder.png" },
+      {
+        key: "moscaoplaceholder",
+        path: "assets/sprites/moscaoplaceholder.png",
+      },
       { key: "garrafa", path: "assets/sprites/Garrafa.png" },
       { key: "osso", path: "assets/sprites/Osso.png" },
       { key: "plástico", path: "assets/sprites/plástico.png" },
       { key: "saco", path: "assets/sprites/Saco.png" },
+
+      { key: "ratoMira", path: "assets/sprites/ratoMira.png" },
+      { key: "ratoMiraArpao", path: "assets/sprites/ratoMiraArpao.png" },
+      { key: "arpao", path: "assets/sprites/arpao.png" },
+      { key: "barcoSemFundo", path: "assets/sprites/barcoSemFundo.png" },
+
+      { key: "onda1", path: "assets/sprites/onda1.png" },
+      { key: "onda2", path: "assets/sprites/onda2.png" },
     ];
 
     assets.forEach((asset) => this.load.image(asset.key, asset.path));
@@ -93,33 +128,98 @@ class MainScene extends Phaser.Scene {
   create() {
     this.setupBackground();
     this.setupPlayer();
+    this.setupOndas();
     this.setupInputs();
     this.setupCamera();
     this.setupTrashZones();
     this.setupMoneyUI();
+    this.setupShopkeeper();
   }
 
   // SETUP METHODS
 
   setupBackground() {
-    const bg = this.add.image(
+    // Create a tiling sprite that stops at the original background height
+    this.bg = this.add.tileSprite(
       this.gameConfig.width / 2,
-      this.gameConfig.height / 2,
-      "marplaceholder"
+      384, // Center of the original background area
+      this.gameConfig.width,
+      768 / 3, // Original background height
+      "ceubg"
     );
-    const scaleX = this.gameConfig.width / bg.width;
-    const scaleY = this.gameConfig.height / bg.height;
-    bg.setScale(Math.max(scaleX, scaleY));
+    this.bg.setScrollFactor(1); // Slow parallax scroll
+    this.bg.setDepth(0);
+    this.bg.setOrigin(0.5, 0.5);
+
+    // Fill the rest with a solid color
+    this.waterBackground = this.add.rectangle(
+      this.gameConfig.width / 2,
+      (768 + this.gameConfig.height) / 2, // Center of the water area
+      this.gameConfig.width,
+      this.gameConfig.height - 768, // Remaining vertical space
+      0x1e90ff // Deep blue for water
+    );
+    this.waterBackground.setScrollFactor(0.1); // Very slow scroll for water
+    this.waterBackground.setDepth(-1);
   }
 
   setupPlayer() {
     this.player = this.add.image(
       this.gameConfig.width / 2,
-      700,
+      500,
       "barcoratosprite"
     );
     const scale = (this.gameConfig.width * 0.08) / this.player.width;
-    this.player.setScale(scale).setOrigin(0.5, 1.8);
+    this.player.setScale(scale).setOrigin(0.5, 0.8);
+    this.player.setDepth(2);
+
+    //   this.ratoSemArpao = this.add
+    //     .image(this.barco.x, this.barco.y, "ratoMira")
+    //     .setScale(0.04)
+    //     .setOrigin(0.5, 0.5)
+    //     .setVisible(false);
+  }
+
+  setupOndas() {
+    this.onda1 = this.add.tileSprite(
+      this.gameConfig.width / 2,
+      this.player.y,
+      this.gameConfig.width,
+      700,
+      "onda1"
+    );
+    this.onda1.setOrigin(0.5, 0.6); // 0.5 / 0.79
+    this.onda1.setDepth(1); // atrás dos objetos, mas na frente do céu
+
+    this.onda1.tilePositionX = 0;
+    this.onda1.tilePositionY = 0;
+
+    this.onda2 = this.add.tileSprite(
+      this.gameConfig.width / 2,
+      this.player.y,
+      this.gameConfig.width,
+      700,
+      "onda2"
+    );
+    this.onda2.setOrigin(0.5, 0.6); // 0.5 / 0.74
+    this.onda2.setDepth(9999); // sempre na frente
+
+    this.onda2.tilePositionX = 0;
+    this.onda2.tilePositionY = 0;
+  }
+
+  setupRatoSemArpao() {
+    const ratoStartPosition = {
+      x: this.player.x,
+      y: this.player.y,
+    };
+    this.ratoSemArpao = this.add
+      .image(ratoStartPosition.x + 25, ratoStartPosition.y + 10, "ratoMira")
+      .setScale(0.05)
+      .setOrigin(0.5, 0.5)
+      .setVisible(true)
+      .setDepth(3);
+    return this.ratoSemArpao;
   }
 
   setupInputs() {
@@ -133,7 +233,7 @@ class MainScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.startFollow(this.player, true);
     cam.setFollowOffset(0, 0);
-    cam.setDeadzone(0, 0);
+    cam.setDeadzone(100, 50);
     cam.setBounds(0, 0, this.gameConfig.width, this.gameConfig.height);
     cam.setZoom(this.cameraConfig.defaultZoom);
   }
@@ -175,36 +275,25 @@ class MainScene extends Phaser.Scene {
 
   // HOOK METHODS
 
-  setupHookControls() {
-    this.input.keyboard.on("keydown-SPACE", () => {
-      if (!this.hookConfig.hook) {
-        this.throwHook();
-        this.hookConfig.isSwinging = true;
-        this.playerConfig.canMove = false;
-        this.followHookWithCamera();
-      } else if (this.hookConfig.isSwinging) {
-        this.startHookThrow();
-      }
-    });
-  }
-
   throwHook() {
     // Cria o anzol
     const hookStartPosition = {
       x: this.player.x,
-      y: this.player.y - 80,
+      y: this.player.y,
     };
 
-    this.hookConfig.hook = this.add.image(
-      hookStartPosition.x,
-      hookStartPosition.y,
-      "anzolplaceholder"
-    );
+    this.hookConfig.hook = this.add
+      .image(
+        hookStartPosition.x + 35,
+        hookStartPosition.y - 20,
+        "ratoMiraArpao"
+      )
+      .setDepth(3);
 
     // Configuração inicial do anzol
-    const hookScale = 0.03;
+    const hookScale = 0.05;
     this.hookConfig.hook.setScale(hookScale);
-    this.hookConfig.hook.setOrigin(0.5, 0.5);
+    this.hookConfig.hook.setOrigin(0.5, 0.01);
 
     // Armazena posição inicial para o retorno
     this.hookConfig.startX = hookStartPosition.x;
@@ -215,26 +304,31 @@ class MainScene extends Phaser.Scene {
     this.hookConfig.returning = false;
   }
 
+  setupHookControls() {
+    this.input.keyboard.on("keydown-SPACE", () => {
+      if (!this.hookConfig.hook) {
+        this.player.setTexture("barcoSemFundo").setOrigin(0.5, 0.58);
+        this.throwHook();
+        this.hookConfig.isSwinging = true;
+        this.playerConfig.canMove = false;
+        this.followHookWithCamera();
+      } else if (this.hookConfig.isSwinging) {
+        this.startHookThrow();
+      }
+    });
+  }
+
   startHookThrow() {
-    // Calcula o ângulo em radianos (-90 para ajustar a direção inicial)
     const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
 
-    // Calcula as componentes de velocidade baseadas no ângulo
+    // velocidade fixa
     this.hookConfig.velocityX = Math.cos(angleRad) * this.hookConfig.throwSpeed;
     this.hookConfig.velocityY = Math.sin(angleRad) * this.hookConfig.throwSpeed;
 
-    // Atualiza estados do anzol
     this.hookConfig.isSwinging = false;
     this.hookConfig.gravity = true;
 
-    // Configura a câmera para seguir o anzol
-    this.cameras.main.startFollow(this.hookConfig.hook);
-    this.tweens.add({
-      targets: this.cameras.main,
-      zoom: this.cameraConfig.hookZoom,
-      duration: this.cameraConfig.tweenDuration,
-      ease: "Power2",
-    });
+    this.followHookWithCamera();
   }
 
   // TRASH METHODS
@@ -325,12 +419,23 @@ class MainScene extends Phaser.Scene {
     return zonaLixo;
   }
 
+  // MOSCAO METHODS
+
+  setupShopkeeper() {
+    this.shopConfig.npc = this.add.image(0, 0, "moscaoplaceholder"); // Substituir pela sprite correta do lojista
+    this.shopConfig.npc.setScale(this.shopConfig.scale);
+    this.shopConfig.npc.setDepth(1);
+    this.shopConfig.npc.setVisible(false);
+  }
+
   // UPDATE METHODS
 
   update(time, delta) {
     this.updatePlayer(delta);
     this.updateHook(delta);
     this.updateTrashZones(delta);
+    this.updateShopkeeper();
+    this.updateOndas(time, delta);
   }
 
   updatePlayer(delta) {
@@ -394,17 +499,25 @@ class MainScene extends Phaser.Scene {
         deltaSeconds;
 
       // Inverte a direção nos limites
-      if (this.hookConfig.hook.angle >= 90) {
-        this.hookConfig.hook.angle = 90;
+      if (this.hookConfig.hook.angle >= 45) {
+        this.hookConfig.hook.angle = 45;
         this.hookConfig.swingDirection = -1;
-      } else if (this.hookConfig.hook.angle <= -90) {
-        this.hookConfig.hook.angle = -90;
+      } else if (this.hookConfig.hook.angle <= -45) {
+        this.hookConfig.hook.angle = -45;
         this.hookConfig.swingDirection = 1;
       }
     } else if (this.hookConfig.gravity) {
       const angleRad = Phaser.Math.DegToRad(this.hookConfig.hook.angle - 90);
       const moveX = Math.cos(angleRad) * this.hookConfig.speed * deltaSeconds;
       const moveY = Math.sin(angleRad) * this.hookConfig.speed * deltaSeconds;
+
+      if (!this.rato) {
+        this.rato = this.setupRatoSemArpao();
+        this.rato.angle = this.hookConfig.hook.angle;
+        this.rato.setOrigin(0.5, 0.5);
+      }
+
+      this.hookConfig.hook.setTexture("arpao");
 
       if (!this.hookConfig.returning) {
         this.hookConfig.hook.x -= moveX;
@@ -429,11 +542,16 @@ class MainScene extends Phaser.Scene {
           // Perto o suficiente da posição inicial
           this.hookConfig.hook.destroy(); // Remove o anzol
           console.log("Anzol retornou e foi removido");
+          if (this.rato) {
+            this.rato.destroy();
+            this.rato = null;
+          }
           this.hookConfig.hook = null;
           this.hookConfig.isSwinging = false;
           this.hookConfig.gravity = false;
           this.hookConfig.returning = false;
           this.playerConfig.canMove = true; // Permite o movimento do player
+          this.player.setTexture("barcoratosprite").setOrigin(0.5, 0.8);
           this.resetCamera(); // Reset camera to follow player
           return;
         }
@@ -513,29 +631,55 @@ class MainScene extends Phaser.Scene {
   }
 
   resetCamera() {
-    // Transição suave com tween
+    const cam = this.cameras.main;
+
+    // Volta a seguir o player suavemente
+    cam.startFollow(this.player, true, 0.05, 0.05);
+
+    // Zoom suave de volta
     this.tweens.add({
-      targets: this.cameras.main,
+      targets: cam,
       zoom: this.cameraConfig.defaultZoom,
       duration: this.cameraConfig.tweenDuration,
       ease: "Power2",
     });
+  }
 
-    // Transição suave para seguir o player
-    const cam = this.cameras.main;
-    cam.startFollow(this.player);
-    this.tweens.add({
-      targets: cam._follow,
-      lerp: 0.1,
-      duration: this.cameraTweenDuration,
-      ease: "Power2",
-    });
+  updateShopkeeper() {
+    const currentTime = this.time.now;
+    const currentZoom = this.cameras.main.zoom;
+    const isDefaultZoom =
+      Math.abs(currentZoom - this.cameraConfig.defaultZoom) < 0.1;
+
+    // Se o anzol está sendo usado, atualiza o tempo e esconde o moscão
+    if (this.hookConfig.isSwinging || this.hookConfig.hook) {
+      this.shopConfig.lastHookTime = currentTime;
+      if (this.shopConfig.npc && this.shopConfig.isVisible) {
+        this.shopConfig.npc.setVisible(false);
+        this.shopConfig.isVisible = false;
+      }
+      return;
+    }
+
+    // Verifica se já passou o delay após o uso do anzol
+    const hasDelayPassed =
+      currentTime - this.shopConfig.lastHookTime > this.shopConfig.spawnDelay;
+
+    // Tenta spawnar apenas se estiver no zoom padrão, passou o delay e o lojista não está visível
+    if (!this.shopConfig.isVisible && isDefaultZoom && hasDelayPassed) {
+      this.spawnShopkeeper();
+    }
   }
 
   followHookWithCamera() {
-    this.cameras.main.startFollow(this.hookConfig.hook);
+    const cam = this.cameras.main;
+
+    // Começa a seguir o hook suavemente
+    cam.startFollow(this.hookConfig.hook, true, 0.05, 0.05);
+
+    // Faz o zoom suave ao mesmo tempo
     this.tweens.add({
-      targets: this.cameras.main,
+      targets: cam,
       zoom: this.cameraConfig.hookZoom,
       duration: this.cameraConfig.tweenDuration,
       ease: "Power2",
@@ -604,5 +748,58 @@ class MainScene extends Phaser.Scene {
 
     // Iniciar retorno do anzol
     this.hookConfig.returning = true;
+  }
+
+  spawnShopkeeper() {
+    if (!this.shopConfig.npc) return;
+
+    // Calcula a viewport da câmera
+    const cam = this.cameras.main;
+    const viewportLeft = this.player.x - cam.width / (2 * cam.zoom);
+    const viewportRight = this.player.x + cam.width / (2 * cam.zoom);
+
+    // Decide o lado para spawnar (esquerda ou direita)
+    const spawnLeft = Phaser.Math.RND.pick([true, false]);
+    let spawnX;
+
+    if (spawnLeft) {
+      spawnX = this.player.x - this.shopConfig.spawnDistance;
+      this.shopConfig.npc.setFlipX(true);
+    } else {
+      spawnX = this.player.x + this.shopConfig.spawnDistance;
+      this.shopConfig.npc.setFlipX(false);
+    }
+
+    // Se o spawn estiver fora da tela jogável, inverte o lado
+    if (spawnX < 0) {
+      spawnX = this.player.x + this.shopConfig.spawnDistance;
+      this.shopConfig.npc.setFlipX(false);
+    } else if (spawnX > this.gameConfig.width) {
+      spawnX = this.player.x - this.shopConfig.spawnDistance;
+      this.shopConfig.npc.setFlipX(true);
+    }
+
+    // Define a posição Y igual ao player e usa a mesma origem
+    this.shopConfig.npc.setOrigin(0.5, 0.6); // Mesma origem do player
+    const spawnY = this.player.y;
+
+    // Posiciona e mostra o lojista
+    this.shopConfig.npc.setPosition(spawnX, spawnY);
+    this.shopConfig.npc.setVisible(true);
+    this.shopConfig.isVisible = true;
+  }
+
+  updateOndas(time, delta) {
+    // Movimento das ondas com valores mais altos
+    this.onda1.tilePositionX += 1; // Direita
+    this.onda2.tilePositionX -= 2; // Esquerda
+
+    // Efeito sinusoidal de sobe/desce CORRIGIDO
+    // Use time * 0.001 para um movimento mais suave
+    const waveTime = time * 0.001;
+
+    // Posição Y base + movimento sinusoidal
+    this.onda1.y = this.player.y + Math.sin(waveTime) * 9; // Movimento suave
+    this.onda2.y = this.player.y + Math.cos(waveTime) * 4;
   }
 }
