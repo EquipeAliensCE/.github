@@ -9,7 +9,7 @@ class MainScene extends Phaser.Scene {
     // Game
     this.gameConfig = {
       width: 1366,
-      height: 1000, // 768
+      height: 1800, // 768
     };
 
     // Player
@@ -412,39 +412,7 @@ spawnSingleZone(x, y, profundidade = 1) {
 }
 
 
-    for (let k = 0; k < positions.length; k++) {
-      const tipo = Phaser.Math.RND.pick(this.trashConfig.types);
-      const s = this.add.image(x + positions[k].x, y + positions[k].y, tipo);
-      s.setScale(0.04);
-      s.setAlpha(0.95);
-      s.setDepth(10);
-      zonaGroup.add(s);
-    }
-
-    const zonaLixo = this.add.zone(x, y, 160, 120);
-    zonaLixo.x = x;
-    zonaLixo.y = y;
-    zonaLixo.lixoGroup = zonaGroup;
-    zonaLixo.coletas = 0;
-
-    if (this.physics && this.physics.world && this.physics.world.enable) {
-      this.physics.world.enable(zonaLixo);
-      if (zonaLixo.body) {
-        zonaLixo.body.setAllowGravity(false);
-        zonaLixo.body.setImmovable(true);
-      }
-    }
-
-    const g = this.add.graphics();
-    g.lineStyle(2, 0xff0000);
-    g.strokeRect(x - 80, y - 60, 160, 120);
-    g.setDepth(100);
-    zonaLixo.debugGraphics = g;
-    g.setDepth(9999);
-
-    this.zonasDeLixo.push(zonaLixo);
-    return zonaLixo;
-  }
+  // (This duplicate block has been removed to fix syntax errors)
 
   createPopup() {
     const popup = this.add.container(this.player.x, this.player.y); // centro (1366x768 / 2)
@@ -769,33 +737,6 @@ spawnSingleZone(x, y, profundidade = 1) {
   }
 
   coletarLixo(zona) {
-    if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
-    zona._processing = true;
-
-    // Incrementa coletas da zona
-    zona.coletas = (zona.coletas || 0) + 1;
-
-    // Pega os sprites da zona
-    const lixoSprites = zona.lixoGroup.getChildren();
-    if (lixoSprites.length > 0) {
-      // Escolhe aleatoriamente um sprite da zona
-      const idx = Phaser.Math.Between(0, lixoSprites.length - 1);
-      const spriteEscolhido = lixoSprites[idx];
-
-      // Cria o lixo visual no anzol
-      const lixo = this.add.image(
-        this.hookConfig.hook.x,
-        this.hookConfig.hook.y,
-        spriteEscolhido.texture.key
-      );
-      lixo.setScale(0.05);
-      lixo.setDepth(10);
-
-      // Remove o sprite da zona para não repetir
-      zona.lixoGroup.remove(spriteEscolhido, true, true);
-
-      // Animação do lixo subindo e sumindo
-      
   if (!zona || zona._processing) return; // evita múltiplas chamadas simultâneas
   zona._processing = true;
 
@@ -833,86 +774,55 @@ spawnSingleZone(x, y, profundidade = 1) {
 
   // Adiciona dinheiro baseado na profundidade
   let valorLixo = Phaser.Math.Between(10, 50);
-
-  // Multiplicador por profundidade
-  if (zona.profundidade === 2) valorLixo *= 1.5; // média
-  else if (zona.profundidade === 3) valorLixo *= 2; // profunda
-
+  if (zona.profundidade === 2) valorLixo *= 1.5;
+  else if (zona.profundidade === 3) valorLixo *= 2;
   this.uiConfig.money += Math.floor(valorLixo);
-  if (this.textoDinheiro) {
-    this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
-  }
+  if (this.textoDinheiro) this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
 
-  // Quando a zona atingir o limite de coletas, remove-a
   const REMOVER_APOS = 3;
   if (zona.coletas >= REMOVER_APOS) {
-    // anima e remove os sprites restantes
+    // Anima e remove os sprites restantes
     if (zona.lixoGroup) {
       this.tweens.add({
-        targets: lixo,
-        y: this.hookConfig.hook.y - 50,
+        targets: zona.lixoGroup.getChildren(),
         alpha: 0,
+        scale: 0,
         duration: 800,
-        onComplete: () => lixo.destroy(),
+        onComplete: () => zona.lixoGroup.clear(true, true),
       });
     }
 
-    // Adiciona dinheiro
-    const valorLixo = Phaser.Math.Between(10, 50);
-    this.uiConfig.money += valorLixo;
-    if (this.textoDinheiro) {
-      this.textoDinheiro.setText(`R$ ${this.uiConfig.money}`);
+    // Remove o debug graphics
+    if (zona.debugGraphics) zona.debugGraphics.destroy();
+
+    // Remove a zona do array
+    const idx = this.zonasDeLixo.indexOf(zona);
+    if (idx > -1) this.zonasDeLixo.splice(idx, 1);
+
+    // Destrói a zona
+    if (zona.destroy) zona.destroy();
+
+    // Atualiza contador de zonas limpas
+    this.trashCollected = (this.trashCollected || 0) + 1;
+    console.log(`Zona limpa! Total de zonas limpas: ${this.trashCollected}`);
+
+    // Mostra popup se atingir a meta
+    if (!this.popupShown && this.trashCollected >= this.trashGoal) {
+      this.popupShown = true;
+      this.createPopup();
     }
-
-    // Quando a zona atingir o limite de coletas, remove-a
-    const REMOVER_APOS = 3;
-    if (zona.coletas >= REMOVER_APOS) {
-      // anima e remove os sprites restantes
-      if (zona.lixoGroup) {
-        this.tweens.add({
-          targets: zona.lixoGroup.getChildren(),
-          alpha: 0,
-          scale: 0,
-          duration: 800,
-          onComplete: () => zona.lixoGroup.clear(true, true),
-        });
-      }
-
-      // remove o debug graphics
-      if (zona.debugGraphics) zona.debugGraphics.destroy();
-
-      // remove a zona do array
-      const idx = this.zonasDeLixo.indexOf(zona);
-      if (idx > -1) this.zonasDeLixo.splice(idx, 1);
-
-      // destrói a zona
-      if (zona.destroy) zona.destroy();
-
-      // contador de zonas limpas
-      this.trashCollected = (this.trashCollected || 0) + 1;
-      console.log(`Zona limpa! Total de zonas limpas: ${this.trashCollected}`);
-
-      // mostra popup se atingiu a meta
-      if (!this.popupShown && this.trashCollected >= this.trashGoal) {
-        this.popupShown = true;
-        this.createPopup();
-      }
-    } else {
-      // Permite nova coleta após delay
-      this.time.delayedCall(
-        250,
-        () => {
-          zona._processing = false;
-        },
-        [],
-        this
-      );
-    }
-
-    // Inicia retorno do anzol
-    this.hookConfig.returning = true;
+  } else {
+    // Permite nova coleta após delay
+    this.time.delayedCall(250, () => {
+      zona._processing = false;
+    }, [], this);
   }
 
+  // Inicia retorno do anzol
+  this.hookConfig.returning = true;
+}
+
+  // MOSCAO SPAWN
   spawnShopkeeper() {
     if (!this.shopConfig.npc) return;
 
@@ -966,3 +876,4 @@ spawnSingleZone(x, y, profundidade = 1) {
     this.onda2.y = this.player.y + Math.cos(waveTime) * 4;
   }
 }
+  
