@@ -52,14 +52,7 @@ class MainScene extends Phaser.Scene {
       targetZones: 6,
       respawnDelay: 5000,
       respawnTimer: 0,
-      minDistance: 250, // Aumentei a distância mínima
-      maxSpawnAttempts: 50, // Número máximo de tentativas de spawn
-      spawnArea: {
-        minX: 100,
-        maxX: 1266,
-        minY: 250,
-        maxY: 700
-      }
+      minDistance: 220,
     };
 
     this.zonasDeLixo = [];
@@ -246,12 +239,9 @@ class MainScene extends Phaser.Scene {
   }
 
   setupMoneyUI() {
-    // CORREÇÃO: Criar a UI em coordenadas de tela fixas
-    const screenWidth = this.cameras.main.width;
-    
     // Background preto semi-transparente
     const moneyBg = this.add
-      .rectangle(0, 0, 180, 48, 0x000000, 0.8)
+      .rectangle(0, 0, 180, 48, 0x000000, 0.6)
       .setOrigin(0);
 
     // Texto do dinheiro
@@ -264,16 +254,23 @@ class MainScene extends Phaser.Scene {
       })
       .setOrigin(0);
 
-    // Container fixo na tela (não no mundo do jogo)
-    this.uiMoney = this.add.container(20, 20, [moneyBg, moneyText]);
-    
-    // Configurações para fixar na tela
-    this.uiMoney.setScrollFactor(0); // Não move com a câmera
-    this.uiMoney.setDepth(10000); // Sempre na frente
-    this.uiMoney.setScale(1); // Escala fixa independente do zoom
+    // Cria o container na posição correta considerando o zoom
+    const uiX = 20;
+    const uiY = 20;
+
+    // Agrupa background e texto em um container
+    this.uiMoney = this.add.container(uiX, uiY, [moneyBg, moneyText]);
+
+    // Configurações importantes do container
+    this.uiMoney.setScrollFactor(0); // Fixa na tela
+    this.uiMoney.setDepth(999); // Sempre na frente
 
     // Salva referência ao texto para atualizações
     this.textoDinheiro = moneyText;
+
+    // Ajusta a escala baseada no zoom da câmera
+    const scale = 1 / this.cameras.main.zoom;
+    this.uiMoney.setScale(scale);
   }
 
   // HOOK METHODS
@@ -336,56 +333,10 @@ class MainScene extends Phaser.Scene {
 
   // TRASH METHODS
 
-   spawnZoneWithDistanceCheck() {
-    let attempts = 0;
-    let validPosition = false;
-    let x, y;
-
-    // Tenta encontrar uma posição válida
-    while (!validPosition && attempts < this.trashConfig.maxSpawnAttempts) {
-      // Gera posição aleatória dentro da área de spawn
-      x = Phaser.Math.Between(
-        this.trashConfig.spawnArea.minX, 
-        this.trashConfig.spawnArea.maxX
-      );
-      y = Phaser.Math.Between(
-        this.trashConfig.spawnArea.minY, 
-        this.trashConfig.spawnArea.maxY
-      );
-
-      // Verifica se está longe o suficiente do jogador
-      const distanceToPlayer = Phaser.Math.Distance.Between(
-        x, y, this.player.x, this.player.y
-      );
-      
-      if (distanceToPlayer < 300) {
-        attempts++;
-        continue; // Muito perto do jogador, tenta outra posição
-      }
-
-      // Verifica distância com todas as zonas existentes
-      validPosition = this.zonasDeLixo.every(zone => {
-        const distance = Phaser.Math.Distance.Between(x, y, zone.x, zone.y);
-        return distance >= this.trashConfig.minDistance;
-      });
-
-      attempts++;
-    }
-
-    // Se encontrou posição válida, spawna a zona
-    if (validPosition) {
-      this.spawnSingleZone(x, y);
-      console.log(`Zona spawnada em (${x}, ${y}) após ${attempts} tentativas`);
-    } else {
-      console.warn(`Não foi possível encontrar posição válida após ${attempts} tentativas`);
-    }
-  }
-
   setupTrashZones() {
     // Criar N zonas iniciais usando spawnSingleZone
     for (let i = 0; i < this.trashConfig.targetZones; i++) {
       // tenta encontrar uma posição adequada evitando sobreposição
-      this.spawnZoneWithDistanceCheck();
       let attempts = 0;
       const minDistanceBetweenZones = 220;
       let x, y;
@@ -442,13 +393,20 @@ class MainScene extends Phaser.Scene {
       zonaGroup.add(s);
     }
 
-    // Zona de colisão (invisível) - CORREÇÃO: usar origem no centro
+    // Zona de colisão (invisível)
     const zonaLixo = this.add.zone(x, y, 160, 120);
-    zonaLixo.setOrigin(0.5, 0.5); // IMPORTANTE: definir origem no centro
     zonaLixo.x = x; // guardar posição para checagens futuras
     zonaLixo.y = y;
     zonaLixo.lixoGroup = zonaGroup;
     zonaLixo.coletas = 0; // Contador de coletas
+    // Habilita física na zona somente se o plugin existir
+    if (this.physics && this.physics.world && this.physics.world.enable) {
+      this.physics.world.enable(zonaLixo);
+      if (zonaLixo.body) {
+        zonaLixo.body.setAllowGravity(false);
+        zonaLixo.body.setImmovable(true);
+      }
+    }
 
     // Desenhar retângulo vermelho de debug e anexar para remoção posterior
     const g = this.add.graphics();
@@ -565,21 +523,6 @@ class MainScene extends Phaser.Scene {
         this.hookConfig.hook.x -= moveX;
         this.hookConfig.hook.y -= moveY;
 
-        // CORREÇÃO: Verificação de colisão corrigida
-        this.zonasDeLixo.forEach((zona) => {
-          const zoneX = zona.x;
-          const zoneY = zona.y;
-          const zoneWidth = 160;
-          const zoneHeight = 120;
-          
-          if (this.hookConfig.hook.x >= zoneX - zoneWidth/2 && 
-              this.hookConfig.hook.x <= zoneX + zoneWidth/2 &&
-              this.hookConfig.hook.y >= zoneY - zoneHeight/2 && 
-              this.hookConfig.hook.y <= zoneY + zoneHeight/2) {
-            this.coletarLixo(zona);
-          }
-        });
-
         // Checa se saiu da tela
         if (
           this.hookConfig.hook.y > this.gameConfig.height + 20 ||
@@ -590,13 +533,10 @@ class MainScene extends Phaser.Scene {
           this.hookConfig.returning = true;
         }
       } else {
-        // CORREÇÃO: Retorno para o player atual (não posição inicial)
-        const targetX = this.player.x;
-        const targetY = this.player.y - 80;
-        const dx = targetX - this.hookConfig.hook.x;
-        const dy = targetY - this.hookConfig.hook.y;
+        // Retorno do anzol para a posição inicial
+        const dx = this.hookConfig.startX - this.hookConfig.hook.x;
+        const dy = this.hookConfig.startY - this.hookConfig.hook.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-
 
         if (distance < 5) {
           // Perto o suficiente da posição inicial
@@ -616,11 +556,45 @@ class MainScene extends Phaser.Scene {
           return;
         }
 
-        // Voltar na direção do player atual
+        // Voltar na direção da posição inicial
         const dirX = dx / distance;
         const dirY = dy / distance;
         this.hookConfig.hook.x += dirX * this.hookConfig.speed * deltaSeconds;
         this.hookConfig.hook.y += dirY * this.hookConfig.speed * deltaSeconds;
+      }
+    }
+
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
+      // Verificar colisão com zonas de lixo
+      this.zonasDeLixo.forEach((zona) => {
+        const bounds = zona.getBounds();
+        if (
+          Phaser.Geom.Rectangle.Contains(
+            bounds,
+            this.hookConfig.hook.x,
+            this.hookConfig.hook.y
+          )
+        ) {
+          this.coletarLixo(zona);
+        }
+      });
+    }
+
+    if (this.hookConfig.gravity && !this.hookConfig.returning) {
+      // Check if zonasDeLixo exists before using forEach
+      if (this.zonasDeLixo) {
+        this.zonasDeLixo.forEach((zona) => {
+          const bounds = zona.getBounds();
+          if (
+            Phaser.Geom.Rectangle.Contains(
+              bounds,
+              this.hookConfig.hook.x,
+              this.hookConfig.hook.y
+            )
+          ) {
+            this.coletarLixo(zona);
+          }
+        });
       }
     }
   }
