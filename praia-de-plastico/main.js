@@ -9,7 +9,7 @@ const config = {
   zoom: 1, // 720p
 
   canvas: document.getElementById("gameCanvas"), // Usar getElementById pois é HTML seco
-  backgroundColor: "#0d0d35",
+  backgroundColor: "#227ce1",
   physics: {
     default: "arcade",
     arcade: {
